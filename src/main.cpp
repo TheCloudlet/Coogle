@@ -1,3 +1,5 @@
+#include "parser.h"
+#include <cassert>
 #include <clang-c/Index.h>
 #include <cstddef>
 #include <cstdio>
@@ -5,6 +7,9 @@
 #include <regex>
 #include <string>
 #include <vector>
+
+// TODO: line number of funciton decl
+// TODO: Rename function using LLVM style name
 
 constexpr std::size_t BUFFER_SIZE = 512;
 constexpr int EXPECTED_ARG_COUNT = 3;
@@ -80,9 +85,7 @@ std::vector<std::string> detectSystemIncludePaths() {
     }
   }
 
-  if (pclose(pipe) != 0) { // Check for errors when closing the pipe
-    std::fprintf(stderr, "Error closing pipe for clang include path detection.\n");
-  }
+  pclose(pipe);
   return includePaths;
 }
 
@@ -91,15 +94,18 @@ int main(int argc, char *argv[]) {
     // clang-format off
     std::fprintf(stderr, "✖ Error: Incorrect number of arguments.\n\n");
     std::fprintf(stderr, "Usage:\n");
-    std::fprintf(stderr, "  %s <filename> <function_signature_prefix>\n\n", argv[0]);
+    std::fprintf(stderr, "  %s <filename> \"<function_signature_prefix>\"\n\n", argv[0]);
     std::fprintf(stderr, "Example:\n");
-    std::fprintf(stderr, "  %s example.c int(int, char *)\n\n", argv[0]);
+    std::fprintf(stderr, "  %s example.c \"int(int, char *)\"\n\n", argv[0]);
     // clang-format on
     return 1;
   }
 
   const std::string filename = argv[1];
-  const std::string targetSignature = argv[2];
+  Signature sig;
+  if (!parseFunctionSignature(argv[2], sig)) {
+    return 1;
+  }
 
   CXIndex index = clang_createIndex(0, 0);
   if (!index) {
@@ -118,7 +124,8 @@ int main(int argc, char *argv[]) {
       CXTranslationUnit_None);
   if (!tu) { // Check for null translation unit
     // clang-fomat off
-    std::fprintf(stderr, "Error parsing translation unit for file: %s\n", filename.c_str());
+    std::fprintf(stderr, "Error parsing translation unit for file: %s\n",
+                 filename.c_str());
     // clang-fomat on
     clang_disposeIndex(index);
     return 1;
