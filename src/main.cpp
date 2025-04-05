@@ -6,21 +6,41 @@
 #include <string>
 #include <vector>
 
-
-constexpr size_t BUFFER_SIZE = 512;
+constexpr std::size_t BUFFER_SIZE = 512;
 constexpr int EXPECTED_ARG_COUNT = 3;
 
 CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
                            CXClientData client_data) {
-  // Only care about function declarations
   CXCursorKind kind = clang_getCursorKind(cursor);
   if (kind == CXCursor_FunctionDecl || kind == CXCursor_CXXMethod) {
-    CXString name = clang_getCursorSpelling(cursor);
-    std::cout << clang_getCString(name) << std::endl;
-    clang_disposeString(name);
+    CXString funcName = clang_getCursorSpelling(cursor);
+    CXType retType = clang_getCursorResultType(cursor);
+    CXString retSpelling = clang_getTypeSpelling(retType);
+
+    // clang-format off
+    std::printf("%s: %s(", clang_getCString(funcName), clang_getCString(retSpelling));
+    // clang-format on
+
+    clang_disposeString(funcName);
+    clang_disposeString(retSpelling);
+
+    int numArgs = clang_Cursor_getNumArguments(cursor);
+    for (int i = 0; i < numArgs; ++i) {
+      CXCursor argCursor = clang_Cursor_getArgument(cursor, i);
+      CXString argName = clang_getCursorSpelling(argCursor);
+      CXType argType = clang_getCursorType(argCursor);
+      CXString typeSpelling = clang_getTypeSpelling(argType);
+
+      std::printf("%s", clang_getCString(typeSpelling));
+      if (i != numArgs - 1)
+        std::printf(",");
+
+      clang_disposeString(argName);
+      clang_disposeString(typeSpelling);
+    }
+    std::printf(")\n");
   }
 
-  // Keep traversing children
   return CXChildVisit_Recurse;
 }
 
@@ -61,18 +81,20 @@ std::vector<std::string> detectSystemIncludePaths() {
   }
 
   if (pclose(pipe) != 0) { // Check for errors when closing the pipe
-    std::cerr << "Error closing pipe for clang include path detection.\n";
+    std::fprintf(stderr, "Error closing pipe for clang include path detection.\n");
   }
   return includePaths;
 }
 
 int main(int argc, char *argv[]) {
   if (argc != EXPECTED_ARG_COUNT) { // Use constant for argument count
-    std::cerr << "✖ Error: Incorrect number of arguments.\n\n";
-    std::cerr << "Usage:\n";
-    std::cerr << "  coogle <filename.c> <function_signature_prefix>\n\n";
-    std::cerr << "Example:\n";
-    std::cerr << "  ./coogle example.c int(int, char *)\n\n";
+    // clang-format off
+    std::fprintf(stderr, "✖ Error: Incorrect number of arguments.\n\n");
+    std::fprintf(stderr, "Usage:\n");
+    std::fprintf(stderr, "  %s <filename> <function_signature_prefix>\n\n", argv[0]);
+    std::fprintf(stderr, "Example:\n");
+    std::fprintf(stderr, "  %s example.c int(int, char *)\n\n", argv[0]);
+    // clang-format on
     return 1;
   }
 
@@ -81,14 +103,13 @@ int main(int argc, char *argv[]) {
 
   CXIndex index = clang_createIndex(0, 0);
   if (!index) {
-    std::cerr << "Error creating Clang index." << std::endl;
+    std::fprintf(stderr, "Error creating Clang index\n");
     return 1;
   }
 
   std::vector<std::string> argsVec = detectSystemIncludePaths();
   std::vector<const char *> clangArgs;
   for (const auto &s : argsVec) {
-    std::cout << s << std::endl;
     clangArgs.push_back(s.c_str());
   }
 
@@ -96,8 +117,9 @@ int main(int argc, char *argv[]) {
       index, filename.c_str(), clangArgs.data(), clangArgs.size(), nullptr, 0,
       CXTranslationUnit_None);
   if (!tu) { // Check for null translation unit
-    std::cerr << "Error parsing translation unit for file: " << filename
-              << std::endl;
+    // clang-fomat off
+    std::fprintf(stderr, "Error parsing translation unit for file: %s\n", filename.c_str());
+    // clang-fomat on
     clang_disposeIndex(index);
     return 1;
   }
