@@ -2,15 +2,42 @@
 
 #include <cstddef>
 #include <cstdio>
-#include <iostream>
+#include <regex>
 #include <string_view>
 
+// TODO: All string functions should review it's performance
 std::string_view trim(std::string_view sv) {
   const size_t start = sv.find_first_not_of(" \t\n\r");
-  if (start == std::string_view::npos)
+  if (start == std::string_view::npos) {
     return {};
+  }
   const size_t end = sv.find_last_not_of(" \t\n\r");
   return sv.substr(start, end - start + 1);
+}
+
+std::string normalizeType(std::string_view type) {
+  std::string result;
+  bool prevSpace = false;
+
+  for (char c : type) {
+    if (c == ' ') {
+      prevSpace = true;
+    } else {
+      if ((c == '*' || c == '&') && prevSpace && !result.empty()) {
+        result.pop_back();  // remove space before * or &
+      }
+      result += c;
+      prevSpace = false;
+    }
+  }
+
+  // Remove 'const' for looser comparison
+  result = std::regex_replace(result, std::regex("\\bconst\\b"), "");
+
+  // Remove all remaining whitespace
+  result = std::regex_replace(result, std::regex("\\s+"), "");
+
+  return result;
 }
 
 bool parseFunctionSignature(std::string_view input, Signature &output) {
@@ -25,20 +52,37 @@ bool parseFunctionSignature(std::string_view input, Signature &output) {
   }
 
   output.retType = input.substr(0, parenOpen);
-  std::cout << "retType: " << output.retType << std::endl;
+  std::printf("retType: %s\n", output.retType.c_str());
 
   size_t start = parenOpen + 1;
   while (start < input.size()) {
     size_t end = input.find_first_of(",)", start);
     std::string_view token = input.substr(start, end - start);
     std::string_view cleaned = trim(token);
-    if (!cleaned.empty())
+    if (!cleaned.empty()) {
       output.argType.push_back(std::string(cleaned));
-
-    if (end == std::string_view::npos)
+    }
+    if (end == std::string_view::npos) {
       break;
-
+    }
     start = end + 1;
+  }
+
+  return true;
+}
+
+bool isSignatureMatch(const Signature &a, const Signature &b) {
+  if (normalizeType(a.retType) != normalizeType(b.retType)) {
+    return false;
+  }
+  if (a.argType.size() != b.argType.size()) {
+    return false;
+  }
+
+  for (size_t i = 0; i < a.argType.size(); ++i) {
+    if (normalizeType(a.argType[i]) != normalizeType(b.argType[i])) {
+      return false;
+    }
   }
 
   return true;

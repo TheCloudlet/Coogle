@@ -16,11 +16,17 @@ constexpr int EXPECTED_ARG_COUNT = 3;
 
 CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
                            CXClientData client_data) {
+  auto* targetSig = static_cast<Signature*>(client_data);
+  Signature actual;
+
   CXCursorKind kind = clang_getCursorKind(cursor);
   if (kind == CXCursor_FunctionDecl || kind == CXCursor_CXXMethod) {
     CXString funcName = clang_getCursorSpelling(cursor);
     CXType retType = clang_getCursorResultType(cursor);
     CXString retSpelling = clang_getTypeSpelling(retType);
+
+    actual.funcName = clang_getCString(funcName);
+    actual.retType = clang_getCString(retSpelling);
 
     // clang-format off
     std::printf("%s: %s(", clang_getCString(funcName), clang_getCString(retSpelling));
@@ -35,6 +41,7 @@ CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
       CXString argName = clang_getCursorSpelling(argCursor);
       CXType argType = clang_getCursorType(argCursor);
       CXString typeSpelling = clang_getTypeSpelling(argType);
+      actual.argType.push_back(clang_getCString(typeSpelling));
 
       std::printf("%s", clang_getCString(typeSpelling));
       if (i != numArgs - 1)
@@ -44,6 +51,12 @@ CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
       clang_disposeString(typeSpelling);
     }
     std::printf(")\n");
+
+    if (isSignatureMatch(*targetSig, actual)) {
+      std::printf("✔ MATCH: %s\n", actual.funcName.c_str());
+    } else {
+      std::printf("✖ MISMATCH: %s\n", actual.funcName.c_str());
+    }
   }
 
   return CXChildVisit_Recurse;
@@ -92,7 +105,7 @@ int main(int argc, char *argv[]) {
   }
 
   CXCursor rootCursor = clang_getTranslationUnitCursor(tu);
-  clang_visitChildren(rootCursor, visitor, nullptr);
+  clang_visitChildren(rootCursor, visitor, &sig);
 
   clang_disposeTranslationUnit(tu); // Clean up translation unit
   clang_disposeIndex(index);        // Clean up Clang index
