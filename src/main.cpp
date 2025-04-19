@@ -4,8 +4,6 @@
 #include <clang-c/Index.h>
 #include <cstddef>
 #include <cstdio>
-#include <iostream>
-#include <regex>
 #include <string>
 #include <vector>
 
@@ -14,48 +12,54 @@
 
 constexpr int EXPECTED_ARG_COUNT = 3;
 
-CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
+CXChildVisitResult visitor(CXCursor cursor, [[maybe_unused]] CXCursor parent,
                            CXClientData client_data) {
-  auto* targetSig = static_cast<Signature*>(client_data);
+  auto *targetSig = static_cast<Signature *>(client_data);
   Signature actual;
 
   CXCursorKind kind = clang_getCursorKind(cursor);
   if (kind == CXCursor_FunctionDecl || kind == CXCursor_CXXMethod) {
-    CXString funcName = clang_getCursorSpelling(cursor);
     CXType retType = clang_getCursorResultType(cursor);
     CXString retSpelling = clang_getTypeSpelling(retType);
 
-    actual.funcName = clang_getCString(funcName);
     actual.retType = clang_getCString(retSpelling);
-
-    // clang-format off
-    std::printf("%s: %s(", clang_getCString(funcName), clang_getCString(retSpelling));
-    // clang-format on
-
-    clang_disposeString(funcName);
+    printf("XXX %s\n", clang_getCString(retSpelling));
     clang_disposeString(retSpelling);
 
     int numArgs = clang_Cursor_getNumArguments(cursor);
     for (int i = 0; i < numArgs; ++i) {
       CXCursor argCursor = clang_Cursor_getArgument(cursor, i);
-      CXString argName = clang_getCursorSpelling(argCursor);
+      CXString argName = clang_getCursorSpelling(argCursor); // Not necessary
       CXType argType = clang_getCursorType(argCursor);
       CXString typeSpelling = clang_getTypeSpelling(argType);
-      actual.argType.push_back(clang_getCString(typeSpelling));
 
-      std::printf("%s", clang_getCString(typeSpelling));
-      if (i != numArgs - 1)
-        std::printf(",");
+      actual.argType.push_back(clang_getCString(typeSpelling));
 
       clang_disposeString(argName);
       clang_disposeString(typeSpelling);
     }
-    std::printf(")\n");
 
-    if (isSignatureMatch(*targetSig, actual)) {
-      std::printf("✔ MATCH: %s\n", actual.funcName.c_str());
-    } else {
-      std::printf("✖ MISMATCH: %s\n", actual.funcName.c_str());
+    if (1 || isSignatureMatch(*targetSig, actual)) {
+      // Extract other information
+      CXString funcName = clang_getCursorSpelling(cursor);
+      const char *funcNameStr = clang_getCString(funcName);
+
+      CXSourceLocation location = clang_getCursorLocation(cursor);
+      CXFile file;
+      unsigned line = 0, column = 0;
+      clang_getSpellingLocation(location, &file, &line, &column, nullptr);
+
+      CXString fileName = clang_getFileName(file);
+      const char *fileNameStr = clang_getCString(fileName);
+
+      std::printf("%s:%u\t%s :: %s\n", fileNameStr, line, funcNameStr,
+                  toString(actual).c_str());
+      if (isSignatureMatch(*targetSig, actual)) {
+        std::printf(" <--HIT!\n");
+      }
+
+      clang_disposeString(funcName);
+      clang_disposeString(fileName);
     }
   }
 

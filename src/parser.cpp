@@ -15,6 +15,19 @@ std::string_view trim(std::string_view sv) {
   return sv.substr(start, end - start + 1);
 }
 
+std::string toString(const Signature &sig) {
+  std::string result = sig.retType + "(";
+
+  for (size_t i = 0; i < sig.argType.size(); ++i) {
+    result += sig.argType[i];
+    if (i != sig.argType.size() - 1)
+      result += ", ";
+  }
+
+  result += ")";
+  return result;
+}
+
 std::string normalizeType(std::string_view type) {
   std::string result;
   bool prevSpace = false;
@@ -24,7 +37,7 @@ std::string normalizeType(std::string_view type) {
       prevSpace = true;
     } else {
       if ((c == '*' || c == '&') && prevSpace && !result.empty()) {
-        result.pop_back();  // remove space before * or &
+        result.pop_back(); // remove space before * or &
       }
       result += c;
       prevSpace = false;
@@ -52,7 +65,6 @@ bool parseFunctionSignature(std::string_view input, Signature &output) {
   }
 
   output.retType = input.substr(0, parenOpen);
-  std::printf("retType: %s\n", output.retType.c_str());
 
   size_t start = parenOpen + 1;
   while (start < input.size()) {
@@ -67,6 +79,8 @@ bool parseFunctionSignature(std::string_view input, Signature &output) {
     }
     start = end + 1;
   }
+
+  printf("User Input Signarture:\n\t %s\n\n", toString(output).c_str());
 
   return true;
 }
