@@ -1,4 +1,4 @@
-CXX = clang++
+CXX = clang++ -g
 CXXFLAGS = -std=c++17 -Wall -Wextra -I/opt/homebrew/opt/llvm/include
 LDFLAGS = -L/opt/homebrew/opt/llvm/lib
 
