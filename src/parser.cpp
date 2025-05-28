@@ -54,6 +54,7 @@ std::string normalizeType(std::string_view type) {
 }
 
 bool parseFunctionSignature(std::string_view input, Signature &output) {
+  // FIXME: not support function pointer yet
   size_t parenOpen = input.find('(');
   size_t parenClose = input.find(')', parenOpen);
 
@@ -80,8 +81,7 @@ bool parseFunctionSignature(std::string_view input, Signature &output) {
     start = end + 1;
   }
 
-  printf("User Input Signarture:\n\t %s\n\n", toString(output).c_str());
-
+  printf("\nMatched Functions for Signature: %s\n", toString(output).c_str());
   return true;
 }
 

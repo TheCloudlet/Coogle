@@ -23,7 +23,6 @@ CXChildVisitResult visitor(CXCursor cursor, [[maybe_unused]] CXCursor parent,
     CXString retSpelling = clang_getTypeSpelling(retType);
 
     actual.retType = clang_getCString(retSpelling);
-    printf("XXX %s\n", clang_getCString(retSpelling));
     clang_disposeString(retSpelling);
 
     int numArgs = clang_Cursor_getNumArguments(cursor);
@@ -51,12 +50,14 @@ CXChildVisitResult visitor(CXCursor cursor, [[maybe_unused]] CXCursor parent,
 
       CXString fileName = clang_getFileName(file);
       const char *fileNameStr = clang_getCString(fileName);
-
-      std::printf("%s:%u\t%s :: %s\n", fileNameStr, line, funcNameStr,
+      std::printf("%-25s  %-5u  %-16s  %s", fileNameStr, line, funcNameStr,
                   toString(actual).c_str());
+
       if (isSignatureMatch(*targetSig, actual)) {
-        std::printf(" <--HIT!\n");
+        std::printf(" <--HIT!");
       }
+
+      std::printf("\n");
 
       clang_disposeString(funcName);
       clang_disposeString(fileName);
@@ -107,6 +108,11 @@ int main(int argc, char *argv[]) {
     clang_disposeIndex(index);
     return 1;
   }
+
+  // clang-format off
+  std::printf("\n%-25s  %-5s  %-16s  %s\n", "File", "Line", "Function", "Signature");
+  std::printf("%s\n", std::string(70, '-').c_str());
+  // clang-format on
 
   CXCursor rootCursor = clang_getTranslationUnitCursor(tu);
   clang_visitChildren(rootCursor, visitor, &sig);
