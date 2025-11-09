@@ -68,8 +68,14 @@ This will generate the `coogle` executable inside the `build/` directory.
 
 ## Usage
 
+Coogle supports both single file and directory modes:
+
 ```bash
+# Search a single file
 ./build/coogle <source_file> "<function_signature>"
+
+# Search an entire directory (recursive)
+./build/coogle <directory> "<function_signature>"
 ```
 
 ### Signature Format
@@ -82,10 +88,24 @@ return_type(arg1_type, arg2_type, ...)
 
 For example, `int(char *, int)` matches any function returning `int` and taking two arguments: `char *` and `int`.
 
-### Example
+### Examples
+
+**Search a single file:**
 
 ```bash
 ./build/coogle test/inputs/example.c "int(int, int)"
+```
+
+**Search an entire directory:**
+
+```bash
+./build/coogle src/ "void(char *)"
+```
+
+**Search current directory:**
+
+```bash
+./build/coogle . "int(*)(void)"
 ```
 
 ## Architecture
@@ -102,6 +122,8 @@ Coogle uses libclang to parse C/C++ source files and extract function signatures
 
 **Performance & Correctness (2025)**
 
+- Added directory mode with recursive file discovery for searching entire codebases
+- Implemented system header filtering to eliminate noise from stdlib/system includes
 - Fixed critical bug in signature matching that caused all functions to be displayed
 - Optimized type normalization by replacing regex with single-pass character parsing
 - Implemented RAII wrappers (`CXIndexRAII`, `CXTranslationUnitRAII`, `CXStringRAII`) for memory safety
@@ -116,14 +138,13 @@ Coogle uses libclang to parse C/C++ source files and extract function signatures
 - [x] Implements visitor pattern to walk the AST and extract function signatures
 - [x] Enables strict argument matching with type normalization
 - [x] RAII-based resource management for libclang objects
+- [x] Recursive search across multiple files with automatic C/C++ file discovery
+- [x] System header filtering to show only user code matches
 
 **Planned:**
 
 - [ ] Unit tests using GoogleTest
-- [ ] Support for files in different directories `coogle src/ "int(char *, int)"`
-  - [ ] Unified support `file mode` and `directory mode`
 - [ ] Wildcard-style queries (e.g., `int(char *, *)`)
-- [ ] Recursive search across multiple files
 
 ## License
 

@@ -1,47 +1,27 @@
+#include <iostream>
 #include <string>
 #include <vector>
-#include <iostream>
 
-int add(int a, int b) {
-    (void)a;
-    (void)b;
-    return 0;
+int add([[maybe_unused]] int a, [[maybe_unused]] int b) { return 0; }
+
+std::string greet([[maybe_unused]] const std::string &name) { return {}; }
+
+void increment([[maybe_unused]] int *value) {}
+
+void process([[maybe_unused]] void *data, [[maybe_unused]] int size) {}
+
+const char *getMessage() { return "test"; }
+
+std::vector<int>
+doubleElements([[maybe_unused]] const std::vector<int> &input) {
+  return {};
 }
 
-std::string greet(const std::string& name) {
-    (void)name;
-    return {};
-}
+void printAll([[maybe_unused]] const std::vector<std::string> &messages) {}
 
-void increment(int* value) {
-    (void)value;
-}
+void runCallback([[maybe_unused]] void (*callback)(int)) {}
 
-void process(void* data, int size) {
-    (void)data;
-    (void)size;
-}
-
-const char* getMessage() {
-    return "test";
-}
-
-std::vector<int> doubleElements(const std::vector<int>& input) {
-    (void)input;
-    return {};
-}
-
-void printAll(const std::vector<std::string>& messages) {
-    (void)messages;
-}
-
-void runCallback(void (*callback)(int)) {
-    (void)callback;
-}
-
-bool processData(const std::string& label, void* data, size_t size) {
-    (void)label;
-    (void)data;
-    (void)size;
-    return false;
+bool processData([[maybe_unused]] const std::string &label,
+                 [[maybe_unused]] void *data, [[maybe_unused]] size_t size) {
+  return false;
 }

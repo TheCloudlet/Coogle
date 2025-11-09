@@ -44,11 +44,13 @@ std::string normalizeType(std::string_view Type) {
     if (Idx + 5 <= Type.size() && Type.substr(Idx, 5) == "const") {
       // Check if it's a complete word (not part of another identifier)
       bool IsWordStart =
-          (Idx == 0 || std::isspace(static_cast<unsigned char>(Type[Idx - 1])) ||
+          (Idx == 0 ||
+           std::isspace(static_cast<unsigned char>(Type[Idx - 1])) ||
            Type[Idx - 1] == '*' || Type[Idx - 1] == '&');
-      bool IsWordEnd = (Idx + 5 == Type.size() ||
-                        std::isspace(static_cast<unsigned char>(Type[Idx + 5])) ||
-                        Type[Idx + 5] == '*' || Type[Idx + 5] == '&');
+      bool IsWordEnd =
+          (Idx + 5 == Type.size() ||
+           std::isspace(static_cast<unsigned char>(Type[Idx + 5])) ||
+           Type[Idx + 5] == '*' || Type[Idx + 5] == '&');
 
       if (IsWordStart && IsWordEnd) {
         Idx += 4; // Skip "const" (loop will increment by 1)
