@@ -2,7 +2,8 @@
 
 #include <cctype>
 #include <cstddef>
-#include <cstdio>
+#include <format>
+#include <iostream>
 #include <string_view>
 
 // TODO: All string functions should review it's performance
@@ -69,8 +70,7 @@ bool parseFunctionSignature(std::string_view input, Signature &output) {
 
   if (parenOpen == std::string_view::npos ||
       parenClose == std::string_view::npos || parenClose <= parenOpen) {
-    std::fprintf(stderr, "Invalid function signature: '%.*s'\n",
-                 (int)input.size(), input.data());
+    std::cerr << std::format("Invalid function signature: '{}'\n", input);
     return false;
   }
 
@@ -90,7 +90,8 @@ bool parseFunctionSignature(std::string_view input, Signature &output) {
     start = end + 1;
   }
 
-  printf("\nMatched Functions for Signature: %s\n", toString(output).c_str());
+  std::cout << std::format("\nMatched Functions for Signature: {}\n",
+                           toString(output));
   return true;
 }
 

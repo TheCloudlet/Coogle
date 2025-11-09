@@ -2,6 +2,8 @@
 #include "includes.h"
 
 #include <cstdio>
+#include <format>
+#include <iostream>
 #include <regex>
 #include <string>
 #include <vector>
@@ -13,7 +15,7 @@ std::vector<std::string> detectSystemIncludePaths() {
   std::vector<std::string> includePaths;
   FILE *pipe = popen("clang -E -x c /dev/null -v 2>&1", "r");
   if (!pipe) {
-    fprintf(stderr, "Failed to run clang for include path detection.\n");
+    std::cerr << "Failed to run clang for include path detection.\n";
     return includePaths;
   }
 

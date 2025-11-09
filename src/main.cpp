@@ -1,10 +1,12 @@
 #include "clang_raii.h"
 #include "includes.h"
 #include "parser.h"
+
 #include <cassert>
 #include <clang-c/Index.h>
 #include <cstddef>
-#include <cstdio>
+#include <format>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -51,14 +53,15 @@ CXChildVisitResult visitor(CXCursor cursor, [[maybe_unused]] CXCursor parent,
 
       CXString fileName = clang_getFileName(file);
       const char *fileNameStr = clang_getCString(fileName);
-      std::printf("%-25s  %-5u  %-16s  %s", fileNameStr, line, funcNameStr,
-                  toString(actual).c_str());
+
+      std::cout << std::format("{:<25}  {:<5}  {:<16}  {}", fileNameStr, line,
+                               funcNameStr, toString(actual));
 
       if (isSignatureMatch(*targetSig, actual)) {
-        std::printf(" <--HIT!");
+        std::cout << " <--HIT!";
       }
 
-      std::printf("\n");
+      std::cout << "\n";
 
       clang_disposeString(funcName);
       clang_disposeString(fileName);
@@ -70,13 +73,13 @@ CXChildVisitResult visitor(CXCursor cursor, [[maybe_unused]] CXCursor parent,
 
 int main(int argc, char *argv[]) {
   if (argc != EXPECTED_ARG_COUNT) { // Use constant for argument count
-    // clang-format off
-    std::fprintf(stderr, "✖ Error: Incorrect number of arguments.\n\n");
-    std::fprintf(stderr, "Usage:\n");
-    std::fprintf(stderr, "  %s <filename> \"<function_signature_prefix>\"\n\n", argv[0]);
-    std::fprintf(stderr, "Example:\n");
-    std::fprintf(stderr, "  %s example.c \"int(int, char *)\"\n\n", argv[0]);
-    // clang-format on
+    std::cerr << std::format("✖ Error: Incorrect number of arguments.\n\n");
+    std::cerr << "Usage:\n";
+    std::cerr << std::format(
+        "  {} <filename> \"<function_signature_prefix>\"\n\n", argv[0]);
+    std::cerr << "Example:\n";
+    std::cerr << std::format("  {} example.c \"int(int, char *)\"\n\n",
+                             argv[0]);
     return 1;
   }
 
@@ -89,7 +92,7 @@ int main(int argc, char *argv[]) {
   // Create Clang index with RAII wrapper for automatic cleanup
   CXIndexRAII index;
   if (!index.isValid()) {
-    std::fprintf(stderr, "Error creating Clang index\n");
+    std::cerr << "Error creating Clang index\n";
     return 1;
   }
 
@@ -104,17 +107,14 @@ int main(int argc, char *argv[]) {
       index, filename.c_str(), clangArgs.data(), clangArgs.size(), nullptr, 0,
       CXTranslationUnit_None));
   if (!tu.isValid()) {
-    // clang-format off
-    std::fprintf(stderr, "Error parsing translation unit for file: %s\n",
-                 filename.c_str());
-    // clang-format on
+    std::cerr << std::format("Error parsing translation unit for file: {}\n",
+                             filename);
     return 1; // RAII will automatically clean up index
   }
 
-  // clang-format off
-  std::printf("\n%-25s  %-5s  %-16s  %s\n", "File", "Line", "Function", "Signature");
-  std::printf("%s\n", std::string(70, '-').c_str());
-  // clang-format on
+  std::cout << std::format("\n{:<25}  {:<5}  {:<16}  {}\n", "File", "Line",
+                           "Function", "Signature");
+  std::cout << std::format("{}\n", std::string(70, '-'));
 
   CXCursor rootCursor = clang_getTranslationUnitCursor(tu);
   clang_visitChildren(rootCursor, visitor, &sig);
