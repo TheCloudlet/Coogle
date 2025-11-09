@@ -1,8 +1,8 @@
 #include "parser.h"
 
+#include <cctype>
 #include <cstddef>
 #include <cstdio>
-#include <regex>
 #include <string_view>
 
 // TODO: All string functions should review it's performance
@@ -30,25 +30,34 @@ std::string toString(const Signature &sig) {
 
 std::string normalizeType(std::string_view type) {
   std::string result;
-  bool prevSpace = false;
+  result.reserve(type.size()); // Pre-allocate to avoid reallocations
 
-  for (char c : type) {
-    if (c == ' ') {
-      prevSpace = true;
-    } else {
-      if ((c == '*' || c == '&') && prevSpace && !result.empty()) {
-        result.pop_back(); // remove space before * or &
-      }
-      result += c;
-      prevSpace = false;
+  for (size_t i = 0; i < type.size(); ++i) {
+    char c = type[i];
+
+    // Skip all whitespace
+    if (std::isspace(static_cast<unsigned char>(c))) {
+      continue;
     }
+
+    // Skip "const" keyword (check for word boundaries)
+    if (i + 5 <= type.size() && type.substr(i, 5) == "const") {
+      // Check if it's a complete word (not part of another identifier)
+      bool isWordStart =
+          (i == 0 || std::isspace(static_cast<unsigned char>(type[i - 1])) ||
+           type[i - 1] == '*' || type[i - 1] == '&');
+      bool isWordEnd = (i + 5 == type.size() ||
+                        std::isspace(static_cast<unsigned char>(type[i + 5])) ||
+                        type[i + 5] == '*' || type[i + 5] == '&');
+
+      if (isWordStart && isWordEnd) {
+        i += 4; // Skip "const" (loop will increment by 1)
+        continue;
+      }
+    }
+
+    result += c;
   }
-
-  // Remove 'const' for looser comparison
-  result = std::regex_replace(result, std::regex("\\bconst\\b"), "");
-
-  // Remove all remaining whitespace
-  result = std::regex_replace(result, std::regex("\\s+"), "");
 
   return result;
 }

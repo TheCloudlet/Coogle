@@ -1,3 +1,4 @@
+#include "clang_raii.h"
 #include "includes.h"
 #include "parser.h"
 #include <cassert>
@@ -38,7 +39,7 @@ CXChildVisitResult visitor(CXCursor cursor, [[maybe_unused]] CXCursor parent,
       clang_disposeString(typeSpelling);
     }
 
-    if (1 || isSignatureMatch(*targetSig, actual)) {
+    if (isSignatureMatch(*targetSig, actual)) {
       // Extract other information
       CXString funcName = clang_getCursorSpelling(cursor);
       const char *funcNameStr = clang_getCString(funcName);
@@ -85,8 +86,9 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  CXIndex index = clang_createIndex(0, 0);
-  if (!index) {
+  // Create Clang index with RAII wrapper for automatic cleanup
+  CXIndexRAII index;
+  if (!index.isValid()) {
     std::fprintf(stderr, "Error creating Clang index\n");
     return 1;
   }
@@ -97,16 +99,16 @@ int main(int argc, char *argv[]) {
     clangArgs.push_back(s.c_str());
   }
 
-  CXTranslationUnit tu = clang_parseTranslationUnit(
+  // Parse translation unit with RAII wrapper for automatic cleanup
+  CXTranslationUnitRAII tu(clang_parseTranslationUnit(
       index, filename.c_str(), clangArgs.data(), clangArgs.size(), nullptr, 0,
-      CXTranslationUnit_None);
-  if (!tu) { // Check for null translation unit
-    // clang-fomat off
+      CXTranslationUnit_None));
+  if (!tu.isValid()) {
+    // clang-format off
     std::fprintf(stderr, "Error parsing translation unit for file: %s\n",
                  filename.c_str());
-    // clang-fomat on
-    clang_disposeIndex(index);
-    return 1;
+    // clang-format on
+    return 1; // RAII will automatically clean up index
   }
 
   // clang-format off
@@ -117,8 +119,6 @@ int main(int argc, char *argv[]) {
   CXCursor rootCursor = clang_getTranslationUnitCursor(tu);
   clang_visitChildren(rootCursor, visitor, &sig);
 
-  clang_disposeTranslationUnit(tu); // Clean up translation unit
-  clang_disposeIndex(index);        // Clean up Clang index
-
+  // RAII wrappers will automatically clean up resources on scope exit
   return 0;
 }
