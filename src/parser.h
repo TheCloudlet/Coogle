@@ -4,8 +4,8 @@
 #include <vector>
 
 struct Signature {
-  std::string retType;
-  std::vector<std::string> argType;
+  std::string RetType;
+  std::vector<std::string> ArgType;
 };
 
 bool parseFunctionSignature(std::string_view input, Signature &output);

@@ -6,105 +6,104 @@
 #include <iostream>
 #include <string_view>
 
-// TODO: All string functions should review it's performance
 std::string_view trim(std::string_view sv) {
-  const size_t start = sv.find_first_not_of(" \t\n\r");
-  if (start == std::string_view::npos) {
+  const size_t Start = sv.find_first_not_of(" \t\n\r");
+  if (Start == std::string_view::npos) {
     return {};
   }
-  const size_t end = sv.find_last_not_of(" \t\n\r");
-  return sv.substr(start, end - start + 1);
+  const size_t End = sv.find_last_not_of(" \t\n\r");
+  return sv.substr(Start, End - Start + 1);
 }
 
-std::string toString(const Signature &sig) {
-  std::string result = sig.retType + "(";
+std::string toString(const Signature &Sig) {
+  std::string Result = Sig.RetType + "(";
 
-  for (size_t i = 0; i < sig.argType.size(); ++i) {
-    result += sig.argType[i];
-    if (i != sig.argType.size() - 1)
-      result += ", ";
+  for (size_t ArgIdx = 0; ArgIdx < Sig.ArgType.size(); ++ArgIdx) {
+    Result += Sig.ArgType[ArgIdx];
+    if (ArgIdx != Sig.ArgType.size() - 1)
+      Result += ", ";
   }
 
-  result += ")";
-  return result;
+  Result += ")";
+  return Result;
 }
 
-std::string normalizeType(std::string_view type) {
-  std::string result;
-  result.reserve(type.size()); // Pre-allocate to avoid reallocations
+std::string normalizeType(std::string_view Type) {
+  std::string Result;
+  Result.reserve(Type.size()); // Pre-allocate to avoid reallocations
 
-  for (size_t i = 0; i < type.size(); ++i) {
-    char c = type[i];
+  for (size_t Idx = 0; Idx < Type.size(); ++Idx) {
+    char C = Type[Idx];
 
     // Skip all whitespace
-    if (std::isspace(static_cast<unsigned char>(c))) {
+    if (std::isspace(static_cast<unsigned char>(C))) {
       continue;
     }
 
     // Skip "const" keyword (check for word boundaries)
-    if (i + 5 <= type.size() && type.substr(i, 5) == "const") {
+    if (Idx + 5 <= Type.size() && Type.substr(Idx, 5) == "const") {
       // Check if it's a complete word (not part of another identifier)
-      bool isWordStart =
-          (i == 0 || std::isspace(static_cast<unsigned char>(type[i - 1])) ||
-           type[i - 1] == '*' || type[i - 1] == '&');
-      bool isWordEnd = (i + 5 == type.size() ||
-                        std::isspace(static_cast<unsigned char>(type[i + 5])) ||
-                        type[i + 5] == '*' || type[i + 5] == '&');
+      bool IsWordStart =
+          (Idx == 0 || std::isspace(static_cast<unsigned char>(Type[Idx - 1])) ||
+           Type[Idx - 1] == '*' || Type[Idx - 1] == '&');
+      bool IsWordEnd = (Idx + 5 == Type.size() ||
+                        std::isspace(static_cast<unsigned char>(Type[Idx + 5])) ||
+                        Type[Idx + 5] == '*' || Type[Idx + 5] == '&');
 
-      if (isWordStart && isWordEnd) {
-        i += 4; // Skip "const" (loop will increment by 1)
+      if (IsWordStart && IsWordEnd) {
+        Idx += 4; // Skip "const" (loop will increment by 1)
         continue;
       }
     }
 
-    result += c;
+    Result += C;
   }
 
-  return result;
+  return Result;
 }
 
-bool parseFunctionSignature(std::string_view input, Signature &output) {
+bool parseFunctionSignature(std::string_view Input, Signature &Output) {
   // FIXME: not support function pointer yet
-  size_t parenOpen = input.find('(');
-  size_t parenClose = input.find(')', parenOpen);
+  size_t ParenOpen = Input.find('(');
+  size_t ParenClose = Input.find(')', ParenOpen);
 
-  if (parenOpen == std::string_view::npos ||
-      parenClose == std::string_view::npos || parenClose <= parenOpen) {
-    std::cerr << std::format("Invalid function signature: '{}'\n", input);
+  if (ParenOpen == std::string_view::npos ||
+      ParenClose == std::string_view::npos || ParenClose <= ParenOpen) {
+    std::cerr << std::format("Invalid function signature: '{}'\n", Input);
     return false;
   }
 
-  output.retType = input.substr(0, parenOpen);
+  Output.RetType = Input.substr(0, ParenOpen);
 
-  size_t start = parenOpen + 1;
-  while (start < input.size()) {
-    size_t end = input.find_first_of(",)", start);
-    std::string_view token = input.substr(start, end - start);
-    std::string_view cleaned = trim(token);
-    if (!cleaned.empty()) {
-      output.argType.push_back(std::string(cleaned));
+  size_t Start = ParenOpen + 1;
+  while (Start < Input.size()) {
+    size_t End = Input.find_first_of(",)", Start);
+    std::string_view Token = Input.substr(Start, End - Start);
+    std::string_view Cleaned = trim(Token);
+    if (!Cleaned.empty()) {
+      Output.ArgType.push_back(std::string(Cleaned));
     }
-    if (end == std::string_view::npos) {
+    if (End == std::string_view::npos) {
       break;
     }
-    start = end + 1;
+    Start = End + 1;
   }
 
   std::cout << std::format("\nMatched Functions for Signature: {}\n",
-                           toString(output));
+                           toString(Output));
   return true;
 }
 
-bool isSignatureMatch(const Signature &a, const Signature &b) {
-  if (normalizeType(a.retType) != normalizeType(b.retType)) {
+bool isSignatureMatch(const Signature &A, const Signature &B) {
+  if (normalizeType(A.RetType) != normalizeType(B.RetType)) {
     return false;
   }
-  if (a.argType.size() != b.argType.size()) {
+  if (A.ArgType.size() != B.ArgType.size()) {
     return false;
   }
 
-  for (size_t i = 0; i < a.argType.size(); ++i) {
-    if (normalizeType(a.argType[i]) != normalizeType(b.argType[i])) {
+  for (size_t ArgIdx = 0; ArgIdx < A.ArgType.size(); ++ArgIdx) {
+    if (normalizeType(A.ArgType[ArgIdx]) != normalizeType(B.ArgType[ArgIdx])) {
       return false;
     }
   }

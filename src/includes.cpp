@@ -8,44 +8,44 @@
 #include <string>
 #include <vector>
 
-constexpr std::size_t BUFFER_SIZE = 512;
+constexpr std::size_t BufferSize = 512;
 
 // Windows is not supported for now
 std::vector<std::string> detectSystemIncludePaths() {
-  std::vector<std::string> includePaths;
-  FILE *pipe = popen("clang -E -x c /dev/null -v 2>&1", "r");
-  if (!pipe) {
+  std::vector<std::string> IncludePaths;
+  FILE *Pipe = popen("clang -E -x c /dev/null -v 2>&1", "r");
+  if (!Pipe) {
     std::cerr << "Failed to run clang for include path detection.\n";
-    return includePaths;
+    return IncludePaths;
   }
 
-  char buffer[BUFFER_SIZE];
-  bool insideSearch = false;
+  char Buffer[BufferSize];
+  bool InsideSearch = false;
 
-  constexpr char INCLUDE_START[] = "#include <...> search starts here:";
-  constexpr char INCLUDE_END[] = "End of search list.";
+  constexpr char IncludeStart[] = "#include <...> search starts here:";
+  constexpr char IncludeEnd[] = "End of search list.";
 
-  while (fgets(buffer, sizeof(buffer), pipe)) {
-    std::string line = buffer;
+  while (fgets(Buffer, sizeof(Buffer), Pipe)) {
+    std::string Line = Buffer;
 
-    if (line.find(INCLUDE_START) != std::string::npos) {
-      insideSearch = true;
+    if (Line.find(IncludeStart) != std::string::npos) {
+      InsideSearch = true;
       continue;
     }
 
-    if (insideSearch && line.find(INCLUDE_END) != std::string::npos) {
+    if (InsideSearch && Line.find(IncludeEnd) != std::string::npos) {
       break;
     }
 
-    if (insideSearch) { // Extract path
-      std::string path =
-          std::regex_replace(line, std::regex("^\\s+|\\s+$"), "");
-      if (!path.empty()) {
-        includePaths.push_back("-I" + path);
+    if (InsideSearch) { // Extract path
+      std::string Path =
+          std::regex_replace(Line, std::regex("^\\s+|\\s+$"), "");
+      if (!Path.empty()) {
+        IncludePaths.push_back("-I" + Path);
       }
     }
   }
 
-  pclose(pipe);
-  return includePaths;
+  pclose(Pipe);
+  return IncludePaths;
 }
