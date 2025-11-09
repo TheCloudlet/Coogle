@@ -101,6 +101,7 @@ Coogle uses libclang to parse C/C++ source files and extract function signatures
 ### Recent Improvements
 
 **Performance & Correctness (2025)**
+
 - Fixed critical bug in signature matching that caused all functions to be displayed
 - Optimized type normalization by replacing regex with single-pass character parsing
 - Implemented RAII wrappers (`CXIndexRAII`, `CXTranslationUnitRAII`, `CXStringRAII`) for memory safety
@@ -109,6 +110,7 @@ Coogle uses libclang to parse C/C++ source files and extract function signatures
 ## Implementation Status
 
 **Completed:**
+
 - [x] Uses Clang's C API (`libclang`) to parse translation units
 - [x] Detects system include paths automatically via `clang -E -v`
 - [x] Implements visitor pattern to walk the AST and extract function signatures
@@ -116,8 +118,10 @@ Coogle uses libclang to parse C/C++ source files and extract function signatures
 - [x] RAII-based resource management for libclang objects
 
 **Planned:**
+
 - [ ] Unit tests using GoogleTest
-- [ ] Support for files in different directories
+- [ ] Support for files in different directories `coogle src/ "int(char *, int)"`
+  - [ ] Unified support `file mode` and `directory mode`
 - [ ] Wildcard-style queries (e.g., `int(char *, *)`)
 - [ ] Recursive search across multiple files
 
