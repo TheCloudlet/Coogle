@@ -143,6 +143,7 @@ Coogle uses libclang to parse C/C++ source files and extract function signatures
 
 **Planned:**
 
+- [ ] Consider use `#inlcude <fmt/core.h>` for better system compatibilty
 - [ ] Unit tests using GoogleTest
 - [ ] Wildcard-style queries (e.g., `int(char *, *)`)
 
