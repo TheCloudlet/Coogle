@@ -9,7 +9,8 @@ include(FetchContent)
 FetchContent_Declare(
   fmt
   GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-  GIT_TAG 10.2.1 # Use a specific, recent version
+  GIT_TAG 10.2.1  # Use a specific, recent version
+  GIT_SHALLOW TRUE  # To speed up cloning
 )
 FetchContent_MakeAvailable(fmt)
 
@@ -30,9 +31,13 @@ message(STATUS "LLVM_LIB_DIR = ${LLVM_LIB_DIR}")
 message(STATUS "LLVM_CFLAGS = ${LLVM_CFLAGS}")
 message(STATUS "LLVM_LDFLAGS = ${LLVM_LDFLAGS}")
 
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
+set(COOGLE_SOURCES
+    src/main.cpp
+    src/parser.cpp
+    src/includes.cpp
+)
 
-add_executable(coogle ${SOURCES})
+add_executable(coogle ${COOGLE_SOURCES})
 target_include_directories(coogle PRIVATE ${LLVM_INCLUDE_DIR} include)
 target_compile_options(coogle PRIVATE ${LLVM_CFLAGS})
 target_link_directories(coogle PRIVATE ${LLVM_LIB_DIR})
