@@ -8,7 +8,7 @@
 #include <clang-c/Index.h>
 #include <cstddef>
 #include <filesystem>
-#include <format>
+#include <fmt/core.h>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -94,7 +94,7 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
       // Only show results from the file we're explicitly parsing
       // This filters out system headers automatically
       if (FileNameStr && Ctx->CurrentFile == FileNameStr) {
-        std::cout << std::format("{:<40}  {:<5}  {:<20}  {}\n", FileNameStr,
+        std::cout << fmt::format("{:<40}  {:<5}  {:<20}  {}\n", FileNameStr,
                                  Line, FuncNameStr, toString(Actual));
         (*Ctx->MatchCount)++;
       }
@@ -109,14 +109,14 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
 
 int main(int Argc, char *Argv[]) {
   if (Argc != ExpectedArgCount) { // Use constant for argument count
-    std::cerr << std::format("✖ Error: Incorrect number of arguments.\n\n");
+    std::cerr << fmt::format("✖ Error: Incorrect number of arguments.\n\n");
     std::cerr << "Usage:\n";
-    std::cerr << std::format(
+    std::cerr << fmt::format(
         "  {} <file_or_directory> \"<function_signature>\"\n\n", Argv[0]);
     std::cerr << "Examples:\n";
-    std::cerr << std::format("  {} example.c \"int(int, char *)\"\n", Argv[0]);
-    std::cerr << std::format("  {} src/ \"void(char *)\"\n", Argv[0]);
-    std::cerr << std::format("  {} . \"int(*)(void)\"\n\n", Argv[0]);
+    std::cerr << fmt::format("  {} example.c \"int(int, char *)\"\n", Argv[0]);
+    std::cerr << fmt::format("  {} src/ \"void(char *)\"\n", Argv[0]);
+    std::cerr << fmt::format("  {} . \"int(*)(void)\"\n\n", Argv[0]);
     return 1;
   }
 
@@ -125,7 +125,7 @@ int main(int Argc, char *Argv[]) {
 
   // Check if path exists
   if (!fs::exists(Path)) {
-    std::cerr << std::format("Error: Path '{}' does not exist\n", InputPath);
+    std::cerr << fmt::format("Error: Path '{}' does not exist\n", InputPath);
     return 1;
   }
 
@@ -133,7 +133,7 @@ int main(int Argc, char *Argv[]) {
   std::vector<std::string> Files = findSourceFiles(Path);
 
   if (Files.empty()) {
-    std::cerr << std::format("No C/C++ files found in: {}\n", InputPath);
+    std::cerr << fmt::format("No C/C++ files found in: {}\n", InputPath);
     return 1;
   }
 
@@ -157,11 +157,11 @@ int main(int Argc, char *Argv[]) {
   }
 
   // Print header
-  std::cout << std::format("\nSearching {} file(s) for signature: {}\n\n",
+  std::cout << fmt::format("\nSearching {} file(s) for signature: {}\n\n",
                            Files.size(), toString(Sig));
-  std::cout << std::format("{:<40}  {:<5}  {:<20}  {}\n", "File", "Line",
+  std::cout << fmt::format("{:<40}  {:<5}  {:<20}  {}\n", "File", "Line",
                            "Function", "Signature");
-  std::cout << std::format("{}\n", std::string(100, '-'));
+  std::cout << fmt::format("{}\n", std::string(100, '-'));
 
   int TotalMatches = 0;
 
@@ -172,7 +172,7 @@ int main(int Argc, char *Argv[]) {
         CXTranslationUnit_None));
 
     if (!TU.isValid()) {
-      std::cerr << std::format("Warning: Failed to parse {}\n", Filename);
+      std::cerr << fmt::format("Warning: Failed to parse {}\n", Filename);
       continue;
     }
 
@@ -181,7 +181,7 @@ int main(int Argc, char *Argv[]) {
     clang_visitChildren(RootCursor, visitor, &Ctx);
   }
 
-  std::cout << std::format("\nTotal matches: {}\n", TotalMatches);
+  std::cout << fmt::format("\nTotal matches: {}\n", TotalMatches);
 
   // RAII wrappers will automatically clean up resources on scope exit
   return 0;

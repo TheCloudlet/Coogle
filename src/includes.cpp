@@ -2,7 +2,7 @@
 #include "coogle/includes.h"
 
 #include <cstdio>
-#include <format>
+#include <fmt/core.h>
 #include <iostream>
 #include <regex>
 #include <string>

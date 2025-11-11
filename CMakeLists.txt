@@ -1,9 +1,17 @@
 cmake_minimum_required(VERSION 3.14)
 project(Coogle LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -Wall -Wextra -g")
+
+include(FetchContent)
+FetchContent_Declare(
+  fmt
+  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+  GIT_TAG 10.2.1 # Use a specific, recent version
+)
+FetchContent_MakeAvailable(fmt)
 
 find_package(GTest CONFIG)
 
@@ -28,7 +36,7 @@ add_executable(coogle ${SOURCES})
 target_include_directories(coogle PRIVATE ${LLVM_INCLUDE_DIR} include)
 target_compile_options(coogle PRIVATE ${LLVM_CFLAGS})
 target_link_directories(coogle PRIVATE ${LLVM_LIB_DIR})
-target_link_libraries(coogle PRIVATE ${LLVM_LDFLAGS} clang)
+target_link_libraries(coogle PRIVATE ${LLVM_LDFLAGS} clang fmt::fmt)
 
 # Tests
 if(GTest_FOUND)
@@ -39,11 +47,11 @@ if(GTest_FOUND)
   target_include_directories(coogle_lib PUBLIC include ${LLVM_INCLUDE_DIR})
   target_compile_options(coogle_lib PRIVATE ${LLVM_CFLAGS})
   target_link_directories(coogle_lib PRIVATE ${LLVM_LIB_DIR})
-  target_link_libraries(coogle_lib ${LLVM_LDFLAGS} clang)
+  target_link_libraries(coogle_lib ${LLVM_LDFLAGS} clang fmt::fmt)
 
   # Test executable
   add_executable(parser_test test/unit/parser_test.cpp)
-  target_link_libraries(parser_test coogle_lib GTest::gtest GTest::gtest_main)
+  target_link_libraries(parser_test coogle_lib GTest::gtest_main)
   target_include_directories(parser_test PRIVATE include)
 
   add_test(NAME ParserTest COMMAND parser_test)

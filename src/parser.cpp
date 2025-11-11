@@ -2,7 +2,7 @@
 
 #include <cctype>
 #include <cstddef>
-#include <format>
+#include <fmt/core.h>
 #include <iostream>
 #include <string_view>
 
@@ -71,7 +71,7 @@ bool parseFunctionSignature(std::string_view Input, Signature &Output) {
 
   if (ParenOpen == std::string_view::npos ||
       ParenClose == std::string_view::npos || ParenClose <= ParenOpen) {
-    std::cerr << std::format("Invalid function signature: '{}'\n", Input);
+    std::cerr << fmt::format("Invalid function signature: '{}'\n", Input);
     return false;
   }
 
@@ -91,7 +91,7 @@ bool parseFunctionSignature(std::string_view Input, Signature &Output) {
     Start = End + 1;
   }
 
-  std::cout << std::format("\nMatched Functions for Signature: {}\n",
+  std::cout << fmt::format("\nMatched Functions for Signature: {}\n",
                            toString(Output));
   return true;
 }
