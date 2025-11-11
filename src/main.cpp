@@ -1,6 +1,6 @@
-#include "clang_raii.h"
-#include "includes.h"
-#include "parser.h"
+#include "coogle/clang_raii.h"
+#include "coogle/includes.h"
+#include "coogle/parser.h"
 
 #include <algorithm>
 #include <array>

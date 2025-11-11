@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "coogle/parser.h"
 #include <gtest/gtest.h>
 
 // Test basic type normalization
