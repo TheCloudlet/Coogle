@@ -1,5 +1,6 @@
 #include "coogle/parser.h"
 
+#include <cassert> // Added for assert
 #include <cctype>
 #include <cstddef>
 #include <fmt/core.h>
@@ -65,6 +66,8 @@ std::string normalizeType(std::string_view Type) {
 }
 
 bool parseFunctionSignature(std::string_view Input, Signature &Output) {
+  assert(Output.RetType.empty() && Output.ArgType.empty() &&
+         "Output signature should be empty"); // Precondition
   // FIXME: not support function pointer yet
   size_t ParenOpen = Input.find('(');
   size_t ParenClose = Input.find(')', ParenOpen);

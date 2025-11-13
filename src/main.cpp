@@ -60,6 +60,8 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
   CXCursorKind Kind = clang_getCursorKind(Cursor);
   if (Kind == CXCursor_FunctionDecl || Kind == CXCursor_CXXMethod) {
     CXType RetType = clang_getCursorResultType(Cursor);
+    assert(RetType.kind != CXType_Invalid &&
+           "Invalid return type obtained from libclang");
     CXString RetSpelling = clang_getTypeSpelling(RetType);
 
     Actual.RetType = clang_getCString(RetSpelling);
@@ -68,8 +70,12 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
     int NumArgs = clang_Cursor_getNumArguments(Cursor);
     for (int ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
       CXCursor ArgCursor = clang_Cursor_getArgument(Cursor, ArgIdx);
+      assert(!clang_equalCursors(ArgCursor, clang_getNullCursor()) &&
+             "Invalid argument cursor obtained from libclang");
       CXString ArgName = clang_getCursorSpelling(ArgCursor); // Not necessary
       CXType ArgType = clang_getCursorType(ArgCursor);
+      assert(ArgType.kind != CXType_Invalid &&
+             "Invalid argument type obtained from libclang");
       CXString TypeSpelling = clang_getTypeSpelling(ArgType);
 
       Actual.ArgType.push_back(clang_getCString(TypeSpelling));
@@ -108,6 +114,9 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
 }
 
 int main(int Argc, char *Argv[]) {
+  assert(Argv != nullptr && "Argv should not be null");
+  assert(Argv[0] != nullptr && "Program name (Argv[0]) should not be null");
+
   if (Argc != ExpectedArgCount) { // Use constant for argument count
     std::cerr << fmt::format("✖ Error: Incorrect number of arguments.\n\n");
     std::cerr << "Usage:\n";
@@ -119,6 +128,13 @@ int main(int Argc, char *Argv[]) {
     std::cerr << fmt::format("  {} . \"int(*)(void)\"\n\n", Argv[0]);
     return 1;
   }
+
+  // Assertions for programming errors, if Argv[1] or Argv[2] are null
+  // despite Argc being correct.
+  assert(Argv[1] != nullptr &&
+         "Input path argument (Argv[1]) should not be null");
+  assert(Argv[2] != nullptr &&
+         "Signature argument (Argv[2]) should not be null");
 
   const std::string InputPath = Argv[1];
   fs::path Path(InputPath);
