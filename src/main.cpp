@@ -1,4 +1,5 @@
 #include "coogle/clang_raii.h"
+#include "coogle/colors.h"
 #include "coogle/includes.h"
 #include "coogle/parser.h"
 
@@ -10,11 +11,13 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <iostream>
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace fs = std::filesystem;
+namespace colors = coogle::colors;
 
 constexpr int ExpectedArgCount = 3;
 
@@ -22,10 +25,16 @@ constexpr int ExpectedArgCount = 3;
 constexpr std::array<std::string_view, 8> CppExtensions = {
     ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".hxx"};
 
+struct Match {
+  unsigned int Line;
+  std::string FunctionName;
+  std::string SignatureStr;
+};
+
 struct VisitorContext {
   Signature *TargetSig;
   std::string CurrentFile;
-  int *MatchCount;
+  std::map<std::string, std::vector<Match>> *Results;
 };
 
 // Find all C/C++ source files in the given path
@@ -100,9 +109,8 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
       // Only show results from the file we're explicitly parsing
       // This filters out system headers automatically
       if (FileNameStr && Ctx->CurrentFile == FileNameStr) {
-        std::cout << fmt::format("{:<40}  {:<5}  {:<20}  {}\n", FileNameStr,
-                                 Line, FuncNameStr, toString(Actual));
-        (*Ctx->MatchCount)++;
+        (*Ctx->Results)[Ctx->CurrentFile].push_back(
+            {Line, FuncNameStr, toString(Actual)});
       }
 
       clang_disposeString(FuncName);
@@ -172,13 +180,9 @@ int main(int Argc, char *Argv[]) {
     ClangArgs.push_back(S.c_str());
   }
 
-  // Print header
-  std::cout << fmt::format("\nSearching {} file(s) for signature: {}\n\n",
-                           Files.size(), toString(Sig));
-  std::cout << fmt::format("{:<40}  {:<5}  {:<20}  {}\n", "File", "Line",
-                           "Function", "Signature");
-  std::cout << fmt::format("{}\n", std::string(100, '-'));
-
+  // --- Data Collection ---
+  std::map<std::string, std::vector<Match>> Results;
+  std::vector<std::string> ParseFailures;
   int TotalMatches = 0;
 
   // Parse each file
@@ -188,16 +192,36 @@ int main(int Argc, char *Argv[]) {
         CXTranslationUnit_None));
 
     if (!TU.isValid()) {
-      std::cerr << fmt::format("Warning: Failed to parse {}\n", Filename);
+      ParseFailures.push_back(Filename);
       continue;
     }
 
-    VisitorContext Ctx{&Sig, Filename, &TotalMatches};
+    VisitorContext Ctx{&Sig, Filename, &Results};
     CXCursor RootCursor = clang_getTranslationUnitCursor(TU);
     clang_visitChildren(RootCursor, visitor, &Ctx);
   }
 
-  std::cout << fmt::format("\nTotal matches: {}\n", TotalMatches);
+  // --- Output ---
+  fmt::print("\n{}▶ Searching for: {}{}\n\n", colors::Bold, toString(Sig), colors::Reset);
+
+  for (const auto &[File, FileMatches] : Results) {
+    fmt::print("{}{}✔ {}{}\n", colors::Bold, colors::Blue, File, colors::Reset);
+    for (const auto &Match : FileMatches) {
+      fmt::print("  {}└─ {}{}: {}{}{}{}\n",
+                 colors::Grey,
+                 colors::Yellow, Match.Line, colors::Reset,
+                 colors::Green, Match.FunctionName, colors::Reset,
+                 Match.SignatureStr);
+      TotalMatches++;
+    }
+  }
+
+  for (const auto &File : ParseFailures) {
+    fmt::print("{}{}✖ Warning: {}{}Failed to parse {}\n",
+               colors::Bold, colors::Yellow, colors::Reset, File);
+  }
+
+  fmt::print("\nMatches found: {}\n", TotalMatches);
 
   // RAII wrappers will automatically clean up resources on scope exit
   return 0;
