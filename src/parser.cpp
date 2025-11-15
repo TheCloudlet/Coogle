@@ -108,6 +108,10 @@ bool isSignatureMatch(const Signature &A, const Signature &B) {
   }
 
   for (size_t ArgIdx = 0; ArgIdx < A.ArgType.size(); ++ArgIdx) {
+    // Handle wildcard argument matching
+    if (A.ArgType[ArgIdx] == "*") {
+      continue;
+    }
     if (normalizeType(A.ArgType[ArgIdx]) != normalizeType(B.ArgType[ArgIdx])) {
       return false;
     }

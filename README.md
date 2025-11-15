@@ -88,6 +88,8 @@ return_type(arg1_type, arg2_type, ...)
 
 For example, `int(char *, int)` matches any function returning `int` and taking two arguments: `char *` and `int`.
 
+You can also use a wildcard `*` for any argument type. For example, to find a function that returns `int`, takes a `char *` as its first argument, and any type as its second, you could search for `int(char *, *)`.
+
 ### Examples
 
 **Search a single file:**
@@ -106,6 +108,12 @@ For example, `int(char *, int)` matches any function returning `int` and taking 
 
 ```bash
 ./build/coogle . "int(*)(void)"
+```
+
+**Search with wildcards:**
+
+```bash
+./build/coogle . "void(*, *)"
 ```
 
 ## Architecture
@@ -128,6 +136,7 @@ Coogle uses libclang to parse C/C++ source files and extract function signatures
 - Optimized type normalization by replacing regex with single-pass character parsing
 - Implemented RAII wrappers (`CXIndexRAII`, `CXTranslationUnitRAII`, `CXStringRAII`) for memory safety
 - Upgraded to C++20 and replaced C-style `printf` with type-safe `std::format`
+- Added support for wildcard arguments in function signature queries (e.g., `int(*, *)`)
 
 ## Implementation Status
 
@@ -135,17 +144,17 @@ Coogle uses libclang to parse C/C++ source files and extract function signatures
 
 - [x] Uses Clang's C API (`libclang`) to parse translation units
 - [x] Detects system include paths automatically via `clang -E -v`
-- [x] Implements visitor pattern to walk the AST and extract function signatures
+- [x] Implements visitor pattern to walk the AST and extract function declarations
 - [x] Enables strict argument matching with type normalization
 - [x] RAII-based resource management for libclang objects
 - [x] Recursive search across multiple files with automatic C/C++ file discovery
 - [x] System header filtering to show only user code matches
+- [x] Wildcard-style queries (e.g., `int(char *, *)`)
 
 **Planned:**
 
 - [ ] Consider use `#inlcude <fmt/core.h>` for better system compatibilty
 - [ ] Unit tests using GoogleTest
-- [ ] Wildcard-style queries (e.g., `int(char *, *)`)
 
 ## License
 
