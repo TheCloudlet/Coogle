@@ -30,8 +30,8 @@ std::string toString(const Signature &Sig) {
 }
 
 std::string normalizeType(std::string_view Type) {
-  std::string Result;
-  Result.reserve(Type.size()); // Pre-allocate to avoid reallocations
+  std::string Temp;
+  Temp.reserve(Type.size()); // Pre-allocate to avoid reallocations
 
   for (size_t Idx = 0; Idx < Type.size(); ++Idx) {
     char C = Type[Idx];
@@ -59,10 +59,32 @@ std::string normalizeType(std::string_view Type) {
       }
     }
 
-    Result += C;
+    Temp += C;
   }
 
-  return Result;
+  // Special handling for std::string, which clang expands to a template
+  size_t Pos = Temp.find("std::basic_string");
+  if (Pos != std::string::npos) {
+    size_t StartTemplate = Temp.find('<', Pos);
+    if (StartTemplate != std::string::npos) {
+      int BracketLevel = 1;
+      size_t EndTemplate = StartTemplate + 1;
+      while (EndTemplate < Temp.length() && BracketLevel > 0) {
+        if (Temp[EndTemplate] == '<') {
+          BracketLevel++;
+        } else if (Temp[EndTemplate] == '>') {
+          BracketLevel--;
+        }
+        EndTemplate++;
+      }
+
+      if (BracketLevel == 0) {
+        Temp.replace(Pos, EndTemplate - Pos, "std::string");
+      }
+    }
+  }
+
+  return Temp;
 }
 
 bool parseFunctionSignature(std::string_view Input, Signature &Output) {
