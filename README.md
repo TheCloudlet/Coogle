@@ -137,6 +137,7 @@ Coogle uses libclang to parse C/C++ source files and extract function signatures
 - Implemented RAII wrappers (`CXIndexRAII`, `CXTranslationUnitRAII`, `CXStringRAII`) for memory safety
 - Upgraded to C++20 and replaced C-style `printf` with type-safe `std::format`
 - Added support for wildcard arguments in function signature queries (e.g., `int(*, *)`)
+- Fixed a bug where searching for `std::string` would fail due to template expansion by libclang
 
 ## Implementation Status
 

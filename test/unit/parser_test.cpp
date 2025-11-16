@@ -49,6 +49,14 @@ TEST(NormalizeTypeTest, ConstEdgeCases) {
   EXPECT_EQ(normalizeType("const const"), "");
 }
 
+// Test std::string normalization
+TEST(NormalizeTypeTest, StdString) {
+  EXPECT_EQ(normalizeType("std::string"), "std::string");
+  EXPECT_EQ(normalizeType("const std::string &"), "std::string&");
+  EXPECT_EQ(normalizeType("std::basic_string<char>"), "std::string");
+  EXPECT_EQ(normalizeType("std::basic_string<char, std::char_traits<char>, std::allocator<char>>"), "std::string");
+}
+
 // Test signature parsing - basic cases
 TEST(ParseSignatureTest, BasicSignatures) {
   Signature Sig;
@@ -284,6 +292,13 @@ TEST(SignatureMatchTest, RealWorldCases) {
   B = {};
   parseFunctionSignature("int(const char *)", A);
   parseFunctionSignature("int(char *)", B);
+  EXPECT_TRUE(isSignatureMatch(A, B));
+
+  // std::string greet(const std::string &)
+  A = {};
+  B = {};
+  parseFunctionSignature("std::string(const std::string &)", A);
+  parseFunctionSignature("std::basic_string<char, std::char_traits<char>, std::allocator<char>>(const std::basic_string<char> &)", B);
   EXPECT_TRUE(isSignatureMatch(A, B));
 }
 
