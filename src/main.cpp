@@ -175,6 +175,9 @@ int main(int Argc, char *Argv[]) {
   }
 
   std::vector<std::string> ArgsVec = detectSystemIncludePaths();
+  ArgsVec.push_back("-x");
+  ArgsVec.push_back("c++");
+
   std::vector<const char *> ClangArgs;
   for (const auto &S : ArgsVec) {
     ClangArgs.push_back(S.c_str());
@@ -202,23 +205,22 @@ int main(int Argc, char *Argv[]) {
   }
 
   // --- Output ---
-  fmt::print("\n{}▶ Searching for: {}{}\n\n", colors::Bold, toString(Sig), colors::Reset);
+  fmt::print("\n{}▶ Searching for: {}{}\n\n", colors::Bold, toString(Sig),
+             colors::Reset);
 
   for (const auto &[File, FileMatches] : Results) {
     fmt::print("{}{}✔ {}{}\n", colors::Bold, colors::Blue, File, colors::Reset);
     for (const auto &Match : FileMatches) {
-      fmt::print("  {}└─ {}{}: {}{}{}{}\n",
-                 colors::Grey,
-                 colors::Yellow, Match.Line, colors::Reset,
-                 colors::Green, Match.FunctionName, colors::Reset,
-                 Match.SignatureStr);
+      fmt::print("  {}└─ {}{}: {}{}{}{}\n", colors::Grey, colors::Yellow,
+                 Match.Line, colors::Reset, colors::Green, Match.FunctionName,
+                 colors::Reset, Match.SignatureStr);
       TotalMatches++;
     }
   }
 
   for (const auto &File : ParseFailures) {
-    fmt::print("{}{}✖ Warning: {}{}Failed to parse {}\n",
-               colors::Bold, colors::Yellow, colors::Reset, File);
+    fmt::print("{}{}✖ Warning: {}{}Failed to parse {}\n", colors::Bold,
+               colors::Yellow, colors::Reset, File);
   }
 
   fmt::print("\nMatches found: {}\n", TotalMatches);

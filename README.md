@@ -155,6 +155,7 @@ Coogle uses libclang to parse C/C++ source files and extract function signatures
 **Planned:**
 
 - [ ] Consider use `#inlcude <fmt/core.h>` for better system compatibilty
+- [ ] Improve type normalization to handle generic template argument stripping for std:: containers and other libraries.
 - [ ] Unit tests using GoogleTest
 
 ## License

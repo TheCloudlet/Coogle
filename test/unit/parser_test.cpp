@@ -54,7 +54,9 @@ TEST(NormalizeTypeTest, StdString) {
   EXPECT_EQ(normalizeType("std::string"), "std::string");
   EXPECT_EQ(normalizeType("const std::string &"), "std::string&");
   EXPECT_EQ(normalizeType("std::basic_string<char>"), "std::string");
-  EXPECT_EQ(normalizeType("std::basic_string<char, std::char_traits<char>, std::allocator<char>>"), "std::string");
+  EXPECT_EQ(normalizeType("std::basic_string<char, std::char_traits<char>, "
+                          "std::allocator<char>>"),
+            "std::string");
 }
 
 // Test signature parsing - basic cases
@@ -111,7 +113,7 @@ TEST(ParseSignatureTest, WithWhitespace) {
   Signature Sig;
 
   EXPECT_TRUE(parseFunctionSignature("int ( int , int )", Sig));
-  EXPECT_EQ(Sig.RetType, "int ");
+  EXPECT_EQ(Sig.RetType, "int");
   ASSERT_EQ(Sig.ArgType.size(), 2);
   EXPECT_EQ(Sig.ArgType[0], "int");
   EXPECT_EQ(Sig.ArgType[1], "int");
@@ -298,7 +300,10 @@ TEST(SignatureMatchTest, RealWorldCases) {
   A = {};
   B = {};
   parseFunctionSignature("std::string(const std::string &)", A);
-  parseFunctionSignature("std::basic_string<char, std::char_traits<char>, std::allocator<char>>(const std::basic_string<char> &)", B);
+  parseFunctionSignature(
+      "std::basic_string<char, std::char_traits<char>, "
+      "std::allocator<char>>(const std::basic_string<char> &)",
+      B);
   EXPECT_TRUE(isSignatureMatch(A, B));
 }
 
@@ -330,13 +335,15 @@ TEST(WildcardIntegrationTest, ExampleFileFunctions) {
   ActualFunc = {};
   parseFunctionSignature("const char *()", WildcardQuery);
   parseFunctionSignature("const char *()", ActualFunc);
-  EXPECT_TRUE(isSignatureMatch(WildcardQuery, ActualFunc)); // No wildcard, just a sanity check
+  EXPECT_TRUE(isSignatureMatch(WildcardQuery,
+                               ActualFunc)); // No wildcard, just a sanity check
 
   // bool processData(const std::string &, void *, size_t)
   WildcardQuery = {};
   ActualFunc = {};
   parseFunctionSignature("bool(const std::string &, *, *)", WildcardQuery);
-  parseFunctionSignature("bool(const std::string &, void *, size_t)", ActualFunc);
+  parseFunctionSignature("bool(const std::string &, void *, size_t)",
+                         ActualFunc);
   EXPECT_TRUE(isSignatureMatch(WildcardQuery, ActualFunc));
 }
 
