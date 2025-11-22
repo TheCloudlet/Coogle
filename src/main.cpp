@@ -162,10 +162,11 @@ int main(int Argc, char *Argv[]) {
   }
 
   // Parse signature once
-  Signature Sig;
-  if (!parseFunctionSignature(Argv[2], Sig)) {
+  auto MaybeSig = parseFunctionSignature(Argv[2]);
+  if (!MaybeSig) {
     return 1;
   }
+  Signature &Sig = *MaybeSig; // Safe: only reachable if parse succeeded
 
   // Initialize libclang once
   CXIndexRAII Index;

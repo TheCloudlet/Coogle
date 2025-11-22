@@ -81,15 +81,12 @@ std::string normalizeType(std::string_view Type) {
   return Temp;
 }
 
-bool parseFunctionSignature(std::string_view Input, Signature &Output) {
-  assert(Output.RetType.empty() && Output.ArgType.empty() &&
-         "Output signature should be empty"); // Precondition
-
+std::optional<Signature> parseFunctionSignature(std::string_view Input) {
   size_t ParenOpen = Input.find('(');
   if (ParenOpen == std::string_view::npos) {
     std::cerr << fmt::format("Invalid function signature (missing '('): '{}'\n",
                              Input);
-    return false;
+    return std::nullopt;
   }
 
   // Find matching closing parenthesis, considering nested templates
@@ -110,17 +107,18 @@ bool parseFunctionSignature(std::string_view Input, Signature &Output) {
   if (ParenClose == std::string_view::npos) {
     std::cerr << fmt::format(
         "Invalid function signature (mismatched parentheses): '{}'\n", Input);
-    return false;
+    return std::nullopt;
   }
 
-  Output.RetType = std::string(trim(Input.substr(0, ParenOpen)));
+  Signature Result;
+  Result.RetType = std::string(trim(Input.substr(0, ParenOpen)));
 
   // Parse arguments
   std::string_view ArgSV =
       Input.substr(ParenOpen + 1, ParenClose - (ParenOpen + 1));
   if (trim(ArgSV).empty()) {
     // No arguments
-    return true;
+    return Result;
   }
 
   size_t Start = 0;
@@ -134,7 +132,7 @@ bool parseFunctionSignature(std::string_view Input, Signature &Output) {
       std::string_view Token = ArgSV.substr(Start, i - Start);
       std::string_view Cleaned = trim(Token);
       if (!Cleaned.empty()) {
-        Output.ArgType.push_back(std::string(Cleaned));
+        Result.ArgType.push_back(std::string(Cleaned));
       }
       Start = i + 1;
     }
@@ -144,10 +142,10 @@ bool parseFunctionSignature(std::string_view Input, Signature &Output) {
   std::string_view Token = ArgSV.substr(Start);
   std::string_view Cleaned = trim(Token);
   if (!Cleaned.empty()) {
-    Output.ArgType.push_back(std::string(Cleaned));
+    Result.ArgType.push_back(std::string(Cleaned));
   }
 
-  return true;
+  return Result;
 }
 
 bool isSignatureMatch(const Signature &A, const Signature &B) {

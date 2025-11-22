@@ -61,290 +61,255 @@ TEST(NormalizeTypeTest, StdString) {
 
 // Test signature parsing - basic cases
 TEST(ParseSignatureTest, BasicSignatures) {
-  Signature Sig;
+  auto Sig = parseFunctionSignature("void()");
+  ASSERT_TRUE(Sig.has_value());
+  EXPECT_EQ(Sig->RetType, "void");
+  EXPECT_EQ(Sig->ArgType.size(), 0);
 
-  EXPECT_TRUE(parseFunctionSignature("void()", Sig));
-  EXPECT_EQ(Sig.RetType, "void");
-  EXPECT_EQ(Sig.ArgType.size(), 0);
-
-  Sig = {};
-  EXPECT_TRUE(parseFunctionSignature("int()", Sig));
-  EXPECT_EQ(Sig.RetType, "int");
-  EXPECT_EQ(Sig.ArgType.size(), 0);
+  Sig = parseFunctionSignature("int()");
+  ASSERT_TRUE(Sig.has_value());
+  EXPECT_EQ(Sig->RetType, "int");
+  EXPECT_EQ(Sig->ArgType.size(), 0);
 }
 
 // Test signature parsing - single argument
 TEST(ParseSignatureTest, SingleArgument) {
-  Signature Sig;
+  auto Sig = parseFunctionSignature("int(int)");
+  ASSERT_TRUE(Sig.has_value());
+  EXPECT_EQ(Sig->RetType, "int");
+  ASSERT_EQ(Sig->ArgType.size(), 1);
+  EXPECT_EQ(Sig->ArgType[0], "int");
 
-  EXPECT_TRUE(parseFunctionSignature("int(int)", Sig));
-  EXPECT_EQ(Sig.RetType, "int");
-  ASSERT_EQ(Sig.ArgType.size(), 1);
-  EXPECT_EQ(Sig.ArgType[0], "int");
-
-  Sig = {};
-  EXPECT_TRUE(parseFunctionSignature("void(char *)", Sig));
-  EXPECT_EQ(Sig.RetType, "void");
-  ASSERT_EQ(Sig.ArgType.size(), 1);
-  EXPECT_EQ(Sig.ArgType[0], "char *");
+  Sig = parseFunctionSignature("void(char *)");
+  ASSERT_TRUE(Sig.has_value());
+  EXPECT_EQ(Sig->RetType, "void");
+  ASSERT_EQ(Sig->ArgType.size(), 1);
+  EXPECT_EQ(Sig->ArgType[0], "char *");
 }
 
 // Test signature parsing - multiple arguments
 TEST(ParseSignatureTest, MultipleArguments) {
-  Signature Sig;
+  auto Sig = parseFunctionSignature("int(int, int)");
+  ASSERT_TRUE(Sig.has_value());
+  EXPECT_EQ(Sig->RetType, "int");
+  ASSERT_EQ(Sig->ArgType.size(), 2);
+  EXPECT_EQ(Sig->ArgType[0], "int");
+  EXPECT_EQ(Sig->ArgType[1], "int");
 
-  EXPECT_TRUE(parseFunctionSignature("int(int, int)", Sig));
-  EXPECT_EQ(Sig.RetType, "int");
-  ASSERT_EQ(Sig.ArgType.size(), 2);
-  EXPECT_EQ(Sig.ArgType[0], "int");
-  EXPECT_EQ(Sig.ArgType[1], "int");
-
-  Sig = {};
-  EXPECT_TRUE(parseFunctionSignature("void(int, char *, double)", Sig));
-  EXPECT_EQ(Sig.RetType, "void");
-  ASSERT_EQ(Sig.ArgType.size(), 3);
-  EXPECT_EQ(Sig.ArgType[0], "int");
-  EXPECT_EQ(Sig.ArgType[1], "char *");
-  EXPECT_EQ(Sig.ArgType[2], "double");
+  Sig = parseFunctionSignature("void(int, char *, double)");
+  ASSERT_TRUE(Sig.has_value());
+  EXPECT_EQ(Sig->RetType, "void");
+  ASSERT_EQ(Sig->ArgType.size(), 3);
+  EXPECT_EQ(Sig->ArgType[0], "int");
+  EXPECT_EQ(Sig->ArgType[1], "char *");
+  EXPECT_EQ(Sig->ArgType[2], "double");
 }
 
 // Test signature parsing - with whitespace
 TEST(ParseSignatureTest, WithWhitespace) {
-  Signature Sig;
-
-  EXPECT_TRUE(parseFunctionSignature("int ( int , int )", Sig));
-  EXPECT_EQ(Sig.RetType, "int");
-  ASSERT_EQ(Sig.ArgType.size(), 2);
-  EXPECT_EQ(Sig.ArgType[0], "int");
-  EXPECT_EQ(Sig.ArgType[1], "int");
+  auto Sig = parseFunctionSignature("int ( int , int )");
+  ASSERT_TRUE(Sig.has_value());
+  EXPECT_EQ(Sig->RetType, "int");
+  ASSERT_EQ(Sig->ArgType.size(), 2);
+  EXPECT_EQ(Sig->ArgType[0], "int");
+  EXPECT_EQ(Sig->ArgType[1], "int");
 }
 
 // Test signature parsing - invalid inputs
 TEST(ParseSignatureTest, InvalidInputs) {
-  Signature Sig;
-
-  EXPECT_FALSE(parseFunctionSignature("invalid", Sig));
-  EXPECT_FALSE(parseFunctionSignature("no_parens", Sig));
-  EXPECT_FALSE(parseFunctionSignature("int(", Sig));
-  EXPECT_FALSE(parseFunctionSignature("int)", Sig));
-  EXPECT_FALSE(parseFunctionSignature(")(", Sig));
+  EXPECT_FALSE(parseFunctionSignature("invalid").has_value());
+  EXPECT_FALSE(parseFunctionSignature("no_parens").has_value());
+  EXPECT_FALSE(parseFunctionSignature("int(").has_value());
+  EXPECT_FALSE(parseFunctionSignature("int)").has_value());
+  EXPECT_FALSE(parseFunctionSignature(")(").has_value());
 }
 
 // Test signature matching - exact matches
 TEST(SignatureMatchTest, ExactMatches) {
-  Signature A, B;
+  auto A = parseFunctionSignature("int(int, int)");
+  auto B = parseFunctionSignature("int(int, int)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
-  parseFunctionSignature("int(int, int)", A);
-  parseFunctionSignature("int(int, int)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("void()");
+  B = parseFunctionSignature("void()");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
-  A = {};
-  B = {};
-  parseFunctionSignature("void()", A);
-  parseFunctionSignature("void()", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
-
-  A = {};
-  B = {};
-  parseFunctionSignature("char *(int, char *)", A);
-  parseFunctionSignature("char *(int, char *)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("char *(int, char *)");
+  B = parseFunctionSignature("char *(int, char *)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 }
 
 // Test signature matching - with const
 TEST(SignatureMatchTest, WithConst) {
-  Signature A, B;
+  auto A = parseFunctionSignature("int(const int)");
+  auto B = parseFunctionSignature("int(int)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
-  parseFunctionSignature("int(const int)", A);
-  parseFunctionSignature("int(int)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("const int(int)");
+  B = parseFunctionSignature("int(int)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
-  A = {};
-  B = {};
-  parseFunctionSignature("const int(int)", A);
-  parseFunctionSignature("int(int)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
-
-  A = {};
-  B = {};
-  parseFunctionSignature("void(const char *)", A);
-  parseFunctionSignature("void(char *)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("void(const char *)");
+  B = parseFunctionSignature("void(char *)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 }
 
 // Test signature matching - with whitespace
 TEST(SignatureMatchTest, WithWhitespace) {
-  Signature A, B;
+  auto A = parseFunctionSignature("int(int,int)");
+  auto B = parseFunctionSignature("int( int , int )");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
-  parseFunctionSignature("int(int,int)", A);
-  parseFunctionSignature("int( int , int )", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
-
-  A = {};
-  B = {};
-  parseFunctionSignature("char*(int)", A);
-  parseFunctionSignature("char * ( int )", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("char*(int)");
+  B = parseFunctionSignature("char * ( int )");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 }
 
 // Test signature matching - mismatches
 TEST(SignatureMatchTest, Mismatches) {
-  Signature A, B;
-
   // Different return types
-  parseFunctionSignature("int(int)", A);
-  parseFunctionSignature("void(int)", B);
-  EXPECT_FALSE(isSignatureMatch(A, B));
+  auto A = parseFunctionSignature("int(int)");
+  auto B = parseFunctionSignature("void(int)");
+  ASSERT_TRUE(A && B);
+  EXPECT_FALSE(isSignatureMatch(*A, *B));
 
   // Different argument counts
-  A = {};
-  B = {};
-  parseFunctionSignature("int(int)", A);
-  parseFunctionSignature("int(int, int)", B);
-  EXPECT_FALSE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("int(int)");
+  B = parseFunctionSignature("int(int, int)");
+  ASSERT_TRUE(A && B);
+  EXPECT_FALSE(isSignatureMatch(*A, *B));
 
   // Different argument types
-  A = {};
-  B = {};
-  parseFunctionSignature("int(int)", A);
-  parseFunctionSignature("int(char)", B);
-  EXPECT_FALSE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("int(int)");
+  B = parseFunctionSignature("int(char)");
+  ASSERT_TRUE(A && B);
+  EXPECT_FALSE(isSignatureMatch(*A, *B));
 
   // Pointer vs non-pointer
-  A = {};
-  B = {};
-  parseFunctionSignature("int(int)", A);
-  parseFunctionSignature("int(int *)", B);
-  EXPECT_FALSE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("int(int)");
+  B = parseFunctionSignature("int(int *)");
+  ASSERT_TRUE(A && B);
+  EXPECT_FALSE(isSignatureMatch(*A, *B));
 }
 
 // Test signature matching - with wildcards
 TEST(SignatureMatchTest, WildcardMatching) {
-  Signature A, B;
-
   // Wildcard in first position
-  parseFunctionSignature("int(*, int)", A);
-  parseFunctionSignature("int(char, int)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  auto A = parseFunctionSignature("int(*, int)");
+  auto B = parseFunctionSignature("int(char, int)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
   // Wildcard in last position
-  A = {};
-  B = {};
-  parseFunctionSignature("void(int, *)", A);
-  parseFunctionSignature("void(int, const char *)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("void(int, *)");
+  B = parseFunctionSignature("void(int, const char *)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
   // Multiple wildcards
-  A = {};
-  B = {};
-  parseFunctionSignature("void(*, *)", A);
-  parseFunctionSignature("void(int, double)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("void(*, *)");
+  B = parseFunctionSignature("void(int, double)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
   // Mismatch return type with wildcard
-  A = {};
-  B = {};
-  parseFunctionSignature("int(*)", A);
-  parseFunctionSignature("void(char *)", B);
-  EXPECT_FALSE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("int(*)");
+  B = parseFunctionSignature("void(char *)");
+  ASSERT_TRUE(A && B);
+  EXPECT_FALSE(isSignatureMatch(*A, *B));
 
   // Mismatch argument count with wildcard
-  A = {};
-  B = {};
-  parseFunctionSignature("int(*)", A);
-  parseFunctionSignature("int(int, int)", B);
-  EXPECT_FALSE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("int(*)");
+  B = parseFunctionSignature("int(int, int)");
+  ASSERT_TRUE(A && B);
+  EXPECT_FALSE(isSignatureMatch(*A, *B));
 }
 
 // Test toString
 TEST(ToStringTest, BasicConversion) {
-  Signature Sig;
+  auto Sig = parseFunctionSignature("int(int, int)");
+  ASSERT_TRUE(Sig.has_value());
+  EXPECT_EQ(toString(*Sig), "int(int, int)");
 
-  parseFunctionSignature("int(int, int)", Sig);
-  EXPECT_EQ(toString(Sig), "int(int, int)");
+  Sig = parseFunctionSignature("void()");
+  ASSERT_TRUE(Sig.has_value());
+  EXPECT_EQ(toString(*Sig), "void()");
 
-  Sig = {}; // Reset
-  parseFunctionSignature("void()", Sig);
-  EXPECT_EQ(toString(Sig), "void()");
-
-  Sig = {}; // Reset
-  parseFunctionSignature("char *(int, char *, double)", Sig);
-  EXPECT_EQ(toString(Sig), "char *(int, char *, double)");
+  Sig = parseFunctionSignature("char *(int, char *, double)");
+  ASSERT_TRUE(Sig.has_value());
+  EXPECT_EQ(toString(*Sig), "char *(int, char *, double)");
 }
 
 // Test complex real-world signatures
 TEST(SignatureMatchTest, RealWorldCases) {
-  Signature A, B;
-
   // FILE * fopen(const char *, const char *)
-  parseFunctionSignature("FILE *(const char *, const char *)", A);
-  parseFunctionSignature("FILE *(char *, char *)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  auto A = parseFunctionSignature("FILE *(const char *, const char *)");
+  auto B = parseFunctionSignature("FILE *(char *, char *)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
   // void * malloc(size_t)
-  A = {};
-  B = {};
-  parseFunctionSignature("void *(size_t)", A);
-  parseFunctionSignature("void *(size_t)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("void *(size_t)");
+  B = parseFunctionSignature("void *(size_t)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
   // int printf(const char *, ...)  - Note: ... not supported yet
   // This will be parsed as just the first arg
-  A = {};
-  B = {};
-  parseFunctionSignature("int(const char *)", A);
-  parseFunctionSignature("int(char *)", B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+  A = parseFunctionSignature("int(const char *)");
+  B = parseFunctionSignature("int(char *)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 
   // std::string greet(const std::string &)
-  A = {};
-  B = {};
-  parseFunctionSignature("std::string(const std::string &)", A);
-  parseFunctionSignature(
+  A = parseFunctionSignature("std::string(const std::string &)");
+  B = parseFunctionSignature(
       "std::basic_string<char, std::char_traits<char>, "
-      "std::allocator<char>>(const std::basic_string<char> &)",
-      B);
-  EXPECT_TRUE(isSignatureMatch(A, B));
+      "std::allocator<char>>(const std::basic_string<char> &)");
+  ASSERT_TRUE(A && B);
+  EXPECT_TRUE(isSignatureMatch(*A, *B));
 }
 
 // Test wildcard matching against the functions in example.c
 TEST(WildcardIntegrationTest, ExampleFileFunctions) {
-  Signature WildcardQuery, ActualFunc;
-
   // int add(int, int)
-  parseFunctionSignature("int(*, *)", WildcardQuery);
-  parseFunctionSignature("int(int, int)", ActualFunc);
-  EXPECT_TRUE(isSignatureMatch(WildcardQuery, ActualFunc));
+  auto WildcardQuery = parseFunctionSignature("int(*, *)");
+  auto ActualFunc = parseFunctionSignature("int(int, int)");
+  ASSERT_TRUE(WildcardQuery && ActualFunc);
+  EXPECT_TRUE(isSignatureMatch(*WildcardQuery, *ActualFunc));
 
   // void increment(int *)
-  WildcardQuery = {};
-  ActualFunc = {};
-  parseFunctionSignature("void(*)", WildcardQuery);
-  parseFunctionSignature("void(int *)", ActualFunc);
-  EXPECT_TRUE(isSignatureMatch(WildcardQuery, ActualFunc));
+  WildcardQuery = parseFunctionSignature("void(*)");
+  ActualFunc = parseFunctionSignature("void(int *)");
+  ASSERT_TRUE(WildcardQuery && ActualFunc);
+  EXPECT_TRUE(isSignatureMatch(*WildcardQuery, *ActualFunc));
 
   // void process(void *, int)
-  WildcardQuery = {};
-  ActualFunc = {};
-  parseFunctionSignature("void(void *, *)", WildcardQuery);
-  parseFunctionSignature("void(void *, int)", ActualFunc);
-  EXPECT_TRUE(isSignatureMatch(WildcardQuery, ActualFunc));
+  WildcardQuery = parseFunctionSignature("void(void *, *)");
+  ActualFunc = parseFunctionSignature("void(void *, int)");
+  ASSERT_TRUE(WildcardQuery && ActualFunc);
+  EXPECT_TRUE(isSignatureMatch(*WildcardQuery, *ActualFunc));
 
   // const char *getMessage()
-  WildcardQuery = {};
-  ActualFunc = {};
-  parseFunctionSignature("const char *()", WildcardQuery);
-  parseFunctionSignature("const char *()", ActualFunc);
-  EXPECT_TRUE(isSignatureMatch(WildcardQuery,
-                               ActualFunc)); // No wildcard, just a sanity check
+  WildcardQuery = parseFunctionSignature("const char *()");
+  ActualFunc = parseFunctionSignature("const char *()");
+  ASSERT_TRUE(WildcardQuery && ActualFunc);
+  EXPECT_TRUE(isSignatureMatch(*WildcardQuery,
+                               *ActualFunc)); // No wildcard, just a sanity check
 
   // bool processData(const std::string &, void *, size_t)
-  WildcardQuery = {};
-  ActualFunc = {};
-  parseFunctionSignature("bool(const std::string &, *, *)", WildcardQuery);
-  parseFunctionSignature("bool(const std::string &, void *, size_t)",
-                         ActualFunc);
-  EXPECT_TRUE(isSignatureMatch(WildcardQuery, ActualFunc));
+  WildcardQuery = parseFunctionSignature("bool(const std::string &, *, *)");
+  ActualFunc = parseFunctionSignature("bool(const std::string &, void *, size_t)");
+  ASSERT_TRUE(WildcardQuery && ActualFunc);
+  EXPECT_TRUE(isSignatureMatch(*WildcardQuery, *ActualFunc));
 }
 
 int main(int Argc, char **Argv) {
