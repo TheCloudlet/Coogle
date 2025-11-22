@@ -1,3 +1,7 @@
+// Copyright 2025 Yi-Ping Pan (Cloudlet)
+//
+// ANSI color codes for terminal output formatting.
+
 #pragma once
 #include <string_view>
 

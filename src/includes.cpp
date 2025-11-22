@@ -1,4 +1,8 @@
-// includes.cpp
+// Copyright 2025 Yi-Ping Pan (Cloudlet)
+//
+// System include path detection by invoking the system C++ compiler
+// and parsing its output.
+
 #include "coogle/includes.h"
 
 #include <cstdio>

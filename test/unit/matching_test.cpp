@@ -1,153 +1,12 @@
+// Copyright 2025 Yi-Ping Pan (Cloudlet)
+//
+// Unit tests for signature matching and wildcard support.
+
 #include "coogle/arena.h"
 #include "coogle/parser.h"
 #include <gtest/gtest.h>
 
 using namespace coogle;
-
-// Test basic type normalization
-TEST(NormalizeTypeTest, BasicTypes) {
-  StringArena Arena;
-  EXPECT_EQ(normalizeType(Arena, "int"), "int");
-  EXPECT_EQ(normalizeType(Arena, "void"), "void");
-  EXPECT_EQ(normalizeType(Arena, "char"), "char");
-  EXPECT_EQ(normalizeType(Arena, "double"), "double");
-  EXPECT_EQ(normalizeType(Arena, "float"), "float");
-}
-
-// Test whitespace removal
-TEST(NormalizeTypeTest, WhitespaceRemoval) {
-  StringArena Arena;
-  EXPECT_EQ(normalizeType(Arena, "int "), "int");
-  EXPECT_EQ(normalizeType(Arena, " int"), "int");
-  EXPECT_EQ(normalizeType(Arena, "  int  "), "int");
-  EXPECT_EQ(normalizeType(Arena, "char *"), "char*");
-  EXPECT_EQ(normalizeType(Arena, "char  *"), "char*");
-  EXPECT_EQ(normalizeType(Arena, "unsigned   int"), "unsignedint");
-}
-
-// Test const qualifier removal
-TEST(NormalizeTypeTest, ConstRemoval) {
-  StringArena Arena;
-  EXPECT_EQ(normalizeType(Arena, "const int"), "int");
-  EXPECT_EQ(normalizeType(Arena, "int const"), "int");
-  EXPECT_EQ(normalizeType(Arena, "const char *"), "char*");
-  EXPECT_EQ(normalizeType(Arena, "char * const"), "char*");
-  EXPECT_EQ(normalizeType(Arena, "const char * const"), "char*");
-}
-
-// Test pointer types
-TEST(NormalizeTypeTest, PointerTypes) {
-  StringArena Arena;
-  EXPECT_EQ(normalizeType(Arena, "int *"), "int*");
-  EXPECT_EQ(normalizeType(Arena, "char *"), "char*");
-  EXPECT_EQ(normalizeType(Arena, "void *"), "void*");
-  EXPECT_EQ(normalizeType(Arena, "int**"), "int**");
-  EXPECT_EQ(normalizeType(Arena, "char * *"), "char**");
-}
-
-// Test const edge cases
-TEST(NormalizeTypeTest, ConstEdgeCases) {
-  StringArena Arena;
-  // "const" as part of a word should not be removed
-  EXPECT_EQ(normalizeType(Arena, "constant"), "constant");
-  EXPECT_EQ(normalizeType(Arena, "myconst"), "myconst");
-
-  // Only standalone "const" should be removed
-  EXPECT_EQ(normalizeType(Arena, "const"), "");
-  EXPECT_EQ(normalizeType(Arena, "const const"), "");
-}
-
-// Test std::string normalization
-TEST(NormalizeTypeTest, StdString) {
-  StringArena Arena;
-  EXPECT_EQ(normalizeType(Arena, "std::string"), "std::string");
-  EXPECT_EQ(normalizeType(Arena, "const std::string &"), "std::string&");
-  EXPECT_EQ(normalizeType(Arena, "std::basic_string<char>"), "std::string");
-  EXPECT_EQ(normalizeType(Arena, "std::basic_string<char, std::char_traits<char>, "
-                                  "std::allocator<char>>"),
-            "std::string");
-}
-
-// Test signature parsing - basic cases
-TEST(ParseSignatureTest, BasicSignatures) {
-  SignatureStorage Storage;
-  auto Sig = parseFunctionSignature(Storage, "void()");
-  ASSERT_TRUE(Sig.has_value());
-  EXPECT_EQ(Sig->RetType, "void");
-  EXPECT_EQ(Sig->ArgTypes.size(), 0);
-
-  SignatureStorage Storage2;
-  Sig = parseFunctionSignature(Storage2, "int()");
-  ASSERT_TRUE(Sig.has_value());
-  EXPECT_EQ(Sig->RetType, "int");
-  EXPECT_EQ(Sig->ArgTypes.size(), 0);
-}
-
-// Test signature parsing - single argument
-TEST(ParseSignatureTest, SingleArgument) {
-  SignatureStorage Storage;
-  auto Sig = parseFunctionSignature(Storage, "int(int)");
-  ASSERT_TRUE(Sig.has_value());
-  EXPECT_EQ(Sig->RetType, "int");
-  ASSERT_EQ(Sig->ArgTypes.size(), 1);
-  EXPECT_EQ(Sig->ArgTypes[0], "int");
-
-  SignatureStorage Storage2;
-  Sig = parseFunctionSignature(Storage2, "void(char *)");
-  ASSERT_TRUE(Sig.has_value());
-  EXPECT_EQ(Sig->RetType, "void");
-  ASSERT_EQ(Sig->ArgTypes.size(), 1);
-  EXPECT_EQ(Sig->ArgTypes[0], "char *");
-}
-
-// Test signature parsing - multiple arguments
-TEST(ParseSignatureTest, MultipleArguments) {
-  SignatureStorage Storage;
-  auto Sig = parseFunctionSignature(Storage, "int(int, int)");
-  ASSERT_TRUE(Sig.has_value());
-  EXPECT_EQ(Sig->RetType, "int");
-  ASSERT_EQ(Sig->ArgTypes.size(), 2);
-  EXPECT_EQ(Sig->ArgTypes[0], "int");
-  EXPECT_EQ(Sig->ArgTypes[1], "int");
-
-  SignatureStorage Storage2;
-  Sig = parseFunctionSignature(Storage2, "void(int, char *, double)");
-  ASSERT_TRUE(Sig.has_value());
-  EXPECT_EQ(Sig->RetType, "void");
-  ASSERT_EQ(Sig->ArgTypes.size(), 3);
-  EXPECT_EQ(Sig->ArgTypes[0], "int");
-  EXPECT_EQ(Sig->ArgTypes[1], "char *");
-  EXPECT_EQ(Sig->ArgTypes[2], "double");
-}
-
-// Test signature parsing - with whitespace
-TEST(ParseSignatureTest, WithWhitespace) {
-  SignatureStorage Storage;
-  auto Sig = parseFunctionSignature(Storage, "int ( int , int )");
-  ASSERT_TRUE(Sig.has_value());
-  EXPECT_EQ(Sig->RetType, "int");
-  ASSERT_EQ(Sig->ArgTypes.size(), 2);
-  EXPECT_EQ(Sig->ArgTypes[0], "int");
-  EXPECT_EQ(Sig->ArgTypes[1], "int");
-}
-
-// Test signature parsing - invalid inputs
-TEST(ParseSignatureTest, InvalidInputs) {
-  SignatureStorage Storage;
-  EXPECT_FALSE(parseFunctionSignature(Storage, "invalid").has_value());
-
-  SignatureStorage Storage2;
-  EXPECT_FALSE(parseFunctionSignature(Storage2, "no_parens").has_value());
-
-  SignatureStorage Storage3;
-  EXPECT_FALSE(parseFunctionSignature(Storage3, "int(").has_value());
-
-  SignatureStorage Storage4;
-  EXPECT_FALSE(parseFunctionSignature(Storage4, "int)").has_value());
-
-  SignatureStorage Storage5;
-  EXPECT_FALSE(parseFunctionSignature(Storage5, ")(").has_value());
-}
 
 // Test signature matching - exact matches
 TEST(SignatureMatchTest, ExactMatches) {
@@ -292,24 +151,6 @@ TEST(SignatureMatchTest, WildcardMatching) {
   EXPECT_FALSE(isSignatureMatch(*A, *B));
 }
 
-// Test toString
-TEST(ToStringTest, BasicConversion) {
-  SignatureStorage Storage;
-  auto Sig = parseFunctionSignature(Storage, "int(int, int)");
-  ASSERT_TRUE(Sig.has_value());
-  EXPECT_EQ(toString(*Sig), "int(int, int)");
-
-  SignatureStorage Storage2;
-  Sig = parseFunctionSignature(Storage2, "void()");
-  ASSERT_TRUE(Sig.has_value());
-  EXPECT_EQ(toString(*Sig), "void()");
-
-  SignatureStorage Storage3;
-  Sig = parseFunctionSignature(Storage3, "char *(int, char *, double)");
-  ASSERT_TRUE(Sig.has_value());
-  EXPECT_EQ(toString(*Sig), "char *(int, char *, double)");
-}
-
 // Test complex real-world signatures
 TEST(SignatureMatchTest, RealWorldCases) {
   // FILE * fopen(const char *, const char *)
@@ -348,7 +189,7 @@ TEST(SignatureMatchTest, RealWorldCases) {
   EXPECT_TRUE(isSignatureMatch(*A, *B));
 }
 
-// Test wildcard matching against the functions in example.c
+// Test wildcard matching against example functions
 TEST(WildcardIntegrationTest, ExampleFileFunctions) {
   // int add(int, int)
   SignatureStorage StorageA;
@@ -380,8 +221,7 @@ TEST(WildcardIntegrationTest, ExampleFileFunctions) {
   SignatureStorage StorageH;
   ActualFunc = parseFunctionSignature(StorageH, "const char *()");
   ASSERT_TRUE(WildcardQuery && ActualFunc);
-  EXPECT_TRUE(isSignatureMatch(*WildcardQuery,
-                               *ActualFunc)); // No wildcard, just a sanity check
+  EXPECT_TRUE(isSignatureMatch(*WildcardQuery, *ActualFunc));
 
   // bool processData(const std::string &, void *, size_t)
   SignatureStorage StorageI;
@@ -390,9 +230,4 @@ TEST(WildcardIntegrationTest, ExampleFileFunctions) {
   ActualFunc = parseFunctionSignature(StorageJ, "bool(const std::string &, void *, size_t)");
   ASSERT_TRUE(WildcardQuery && ActualFunc);
   EXPECT_TRUE(isSignatureMatch(*WildcardQuery, *ActualFunc));
-}
-
-int main(int Argc, char **Argv) {
-  ::testing::InitGoogleTest(&Argc, Argv);
-  return RUN_ALL_TESTS();
 }

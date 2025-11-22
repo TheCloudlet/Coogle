@@ -2,26 +2,73 @@
 #include <string>
 #include <vector>
 
-int add([[maybe_unused]] int a, [[maybe_unused]] int b) { return 0; }
-
-std::string greet([[maybe_unused]] const std::string &name) { return {}; }
-
-void increment([[maybe_unused]] int *value) {}
-
-void process([[maybe_unused]] void *data, [[maybe_unused]] int size) {}
-
-const char *getMessage() { return "test"; }
-
-std::vector<int>
-doubleElements([[maybe_unused]] const std::vector<int> &input) {
-  return {};
+// Simple arithmetic functions
+int add(int a, int b) {
+    return a + b;
 }
 
-void printAll([[maybe_unused]] const std::vector<std::string> &messages) {}
+int multiply(int x, int y) {
+    return x * y;
+}
 
-void runCallback([[maybe_unused]] void (*callback)(int)) {}
+// String operations
+std::string greet(const std::string &name) {
+    return "Hello, " + name + "!";
+}
 
-bool processData([[maybe_unused]] const std::string &label,
-                 [[maybe_unused]] void *data, [[maybe_unused]] size_t size) {
-  return false;
+// Pointer operations
+void increment(int *value) {
+    if (value) {
+        (*value)++;
+    }
+}
+
+void process(void *data, int size) {
+    if (data && size > 0) {
+        // Process raw data buffer
+        char *bytes = static_cast<char*>(data);
+        for (int i = 0; i < size; i++) {
+            bytes[i] = bytes[i] ^ 0xFF; // Simple XOR transformation
+        }
+    }
+}
+
+// String getters
+const char *getMessage() {
+    return "System ready";
+}
+
+char *get_string(void) {
+    return (char *)"Hello World";
+}
+
+// Vector operations
+std::vector<int> doubleElements(const std::vector<int> &input) {
+    std::vector<int> result;
+    for (int val : input) {
+        result.push_back(val * 2);
+    }
+    return result;
+}
+
+void printAll(const std::vector<std::string> &messages) {
+    for (const auto &msg : messages) {
+        std::cout << msg << std::endl;
+    }
+}
+
+// Callback operations
+void runCallback(void (*callback)(int)) {
+    if (callback) {
+        callback(42);
+    }
+}
+
+// Complex data processing
+bool processData(const std::string &label, void *data, size_t size) {
+    if (label.empty() || !data || size == 0) {
+        return false;
+    }
+    std::cout << "Processing " << size << " bytes with label: " << label << std::endl;
+    return true;
 }

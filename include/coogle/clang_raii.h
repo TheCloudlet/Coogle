@@ -1,7 +1,11 @@
+// Copyright 2025 Yi-Ping Pan (Cloudlet)
+//
+// RAII wrappers for libclang resources to ensure proper cleanup.
+
 #pragma once
 #include <clang-c/Index.h>
 
-/// RAII wrapper for CXIndex to ensure proper resource cleanup
+// RAII wrapper for CXIndex to ensure proper resource cleanup.
 class CXIndexRAII {
   CXIndex Index_;
 
@@ -44,7 +48,7 @@ public:
   CXIndex get() const { return Index_; }
 };
 
-/// RAII wrapper for CXTranslationUnit to ensure proper resource cleanup
+// RAII wrapper for CXTranslationUnit to ensure proper resource cleanup.
 class CXTranslationUnitRAII {
   CXTranslationUnit TU_;
 
@@ -89,7 +93,7 @@ public:
   CXTranslationUnit get() const { return TU_; }
 };
 
-/// RAII wrapper for CXString to ensure proper resource cleanup
+// RAII wrapper for CXString to ensure proper resource cleanup.
 class CXStringRAII {
   CXString Str_;
 

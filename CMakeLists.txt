@@ -54,10 +54,30 @@ if(GTest_FOUND)
   target_link_directories(coogle_lib PRIVATE ${LLVM_LIB_DIR})
   target_link_libraries(coogle_lib ${LLVM_LDFLAGS} clang fmt::fmt)
 
-  # Test executable
+  # Test sources
+  set(TEST_SOURCES
+    test/unit/test_main.cpp
+    test/unit/normalize_test.cpp
+    test/unit/signature_test.cpp
+    test/unit/matching_test.cpp
+    test/unit/containers_test.cpp
+  )
+
+  # Test executable with all test files
+  add_executable(coogle_test ${TEST_SOURCES})
+  target_link_libraries(coogle_test coogle_lib GTest::gtest)
+  target_include_directories(coogle_test PRIVATE include)
+
+  # Register tests with CTest
+  add_test(NAME NormalizeTest COMMAND coogle_test --gtest_filter=NormalizeTypeTest.*)
+  add_test(NAME SignatureTest COMMAND coogle_test --gtest_filter=ParseSignatureTest.*:ToStringTest.*)
+  add_test(NAME MatchingTest COMMAND coogle_test --gtest_filter=SignatureMatchTest.*:WildcardIntegrationTest.*)
+  add_test(NAME ContainersTest COMMAND coogle_test --gtest_filter=ContainersTest.*)
+  add_test(NAME AllTests COMMAND coogle_test)
+
+  # Keep legacy parser_test for backward compatibility
   add_executable(parser_test test/unit/parser_test.cpp)
   target_link_libraries(parser_test coogle_lib GTest::gtest_main)
   target_include_directories(parser_test PRIVATE include)
-
-  add_test(NAME ParserTest COMMAND parser_test)
+  add_test(NAME ParserTestLegacy COMMAND parser_test)
 endif()

@@ -1,3 +1,10 @@
+// Copyright 2025 Yi-Ping Pan (Cloudlet)
+//
+// Main entry point for Coogle, a C++ function signature search tool.
+// Parses source files using libclang and matches function signatures
+// with wildcard support.
+
+#include "coogle/arena.h"
 #include "coogle/clang_raii.h"
 #include "coogle/colors.h"
 #include "coogle/includes.h"
@@ -11,7 +18,6 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <iostream>
-#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -25,16 +31,25 @@ constexpr int ExpectedArgCount = 3;
 constexpr std::array<std::string_view, 8> CppExtensions = {
     ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh", ".hxx"};
 
+// Match result with zero-allocation string_view references.
 struct Match {
-  unsigned int Line;
-  std::string FunctionName;
-  std::string SignatureStr;
+  std::string_view FunctionName; // 16 bytes
+  std::string_view SignatureStr; // 16 bytes
+  unsigned int Line;             // 4 bytes
+} __attribute__((packed));
+
+// Parse results for a single file (flat structure).
+struct ParseResults {
+  std::string_view FileName;
+  std::vector<Match> Matches;
 };
 
+// Visitor context with arena storage.
 struct VisitorContext {
-  Signature *TargetSig;
+  coogle::Signature *TargetSig;
   std::string CurrentFile;
-  std::map<std::string, std::vector<Match>> *Results;
+  std::vector<ParseResults> *Results;
+  coogle::SignatureStorage *Storage; // Arena for match strings
 };
 
 // Find all C/C++ source files in the given path
@@ -64,56 +79,92 @@ std::vector<std::string> findSourceFiles(const fs::path &Path) {
 CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
                            CXClientData ClientData) {
   auto *Ctx = static_cast<VisitorContext *>(ClientData);
-  Signature Actual;
 
   CXCursorKind Kind = clang_getCursorKind(Cursor);
   if (Kind == CXCursor_FunctionDecl || Kind == CXCursor_CXXMethod) {
+    // Build actual signature from libclang
+    coogle::SignatureStorage ActualStorage;
+
+    // Get return type
     CXType RetType = clang_getCursorResultType(Cursor);
     assert(RetType.kind != CXType_Invalid &&
            "Invalid return type obtained from libclang");
     CXString RetSpelling = clang_getTypeSpelling(RetType);
-
-    Actual.RetType = clang_getCString(RetSpelling);
+    std::string_view RetTypeSV = clang_getCString(RetSpelling);
+    std::string_view RetTypeInterned = ActualStorage.internString(RetTypeSV);
+    std::string_view RetTypeNorm =
+        coogle::normalizeType(ActualStorage.arena(), RetTypeInterned);
     clang_disposeString(RetSpelling);
 
+    // Get arguments
     int NumArgs = clang_Cursor_getNumArguments(Cursor);
+    ActualStorage.reserveArgs(NumArgs);
+
     for (int ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
       CXCursor ArgCursor = clang_Cursor_getArgument(Cursor, ArgIdx);
       assert(!clang_equalCursors(ArgCursor, clang_getNullCursor()) &&
              "Invalid argument cursor obtained from libclang");
-      CXString ArgName = clang_getCursorSpelling(ArgCursor); // Not necessary
       CXType ArgType = clang_getCursorType(ArgCursor);
       assert(ArgType.kind != CXType_Invalid &&
              "Invalid argument type obtained from libclang");
       CXString TypeSpelling = clang_getTypeSpelling(ArgType);
 
-      Actual.ArgType.push_back(clang_getCString(TypeSpelling));
+      std::string_view ArgTypeSV = clang_getCString(TypeSpelling);
+      std::string_view ArgTypeInterned = ActualStorage.internString(ArgTypeSV);
+      std::string_view ArgTypeNorm =
+          coogle::normalizeType(ActualStorage.arena(), ArgTypeInterned);
+      ActualStorage.addArg(ArgTypeInterned, ArgTypeNorm);
 
-      clang_disposeString(ArgName);
       clang_disposeString(TypeSpelling);
     }
 
-    if (isSignatureMatch(*Ctx->TargetSig, Actual)) {
-      // Extract other information
-      CXString FuncName = clang_getCursorSpelling(Cursor);
-      const char *FuncNameStr = clang_getCString(FuncName);
+    // Build signature struct
+    coogle::Signature Actual;
+    Actual.RetType = RetTypeInterned;
+    Actual.RetTypeNorm = RetTypeNorm;
+    Actual.ArgTypes = ActualStorage.getArgs();
+    Actual.ArgTypesNorm = ActualStorage.getArgsNorm();
 
+    // Check if signature matches
+    if (coogle::isSignatureMatch(*Ctx->TargetSig, Actual)) {
+      // Get function location
       CXSourceLocation Location = clang_getCursorLocation(Cursor);
       CXFile File;
-      unsigned Line = 0, Column = 0;
-      clang_getSpellingLocation(Location, &File, &Line, &Column, nullptr);
+      unsigned Line = 0;
+      clang_getSpellingLocation(Location, &File, &Line, nullptr, nullptr);
 
       CXString FileName = clang_getFileName(File);
       const char *FileNameStr = clang_getCString(FileName);
 
       // Only show results from the file we're explicitly parsing
-      // This filters out system headers automatically
       if (FileNameStr && Ctx->CurrentFile == FileNameStr) {
-        (*Ctx->Results)[Ctx->CurrentFile].push_back(
-            {Line, FuncNameStr, toString(Actual)});
+        // Get function name
+        CXString FuncName = clang_getCursorSpelling(Cursor);
+        const char *FuncNameStr = clang_getCString(FuncName);
+
+        // Intern strings into the shared storage (immediate copy to arena)
+        std::string_view FuncNameView = Ctx->Storage->internString(FuncNameStr);
+        std::string SignatureStr = coogle::toString(Actual);
+        std::string_view SignatureView =
+            Ctx->Storage->internString(SignatureStr);
+
+        // Find or create ParseResults for this file
+        auto It = std::find_if(Ctx->Results->begin(), Ctx->Results->end(),
+                               [&](const ParseResults &PR) {
+                                 return PR.FileName == Ctx->CurrentFile;
+                               });
+
+        if (It == Ctx->Results->end()) {
+          Ctx->Results->push_back(
+              {Ctx->Storage->internString(Ctx->CurrentFile), {}});
+          It = Ctx->Results->end() - 1;
+        }
+
+        It->Matches.push_back({FuncNameView, SignatureView, Line});
+
+        clang_disposeString(FuncName);
       }
 
-      clang_disposeString(FuncName);
       clang_disposeString(FileName);
     }
   }
@@ -125,7 +176,7 @@ int main(int Argc, char *Argv[]) {
   assert(Argv != nullptr && "Argv should not be null");
   assert(Argv[0] != nullptr && "Program name (Argv[0]) should not be null");
 
-  if (Argc != ExpectedArgCount) { // Use constant for argument count
+  if (Argc != ExpectedArgCount) {
     std::cerr << fmt::format("✖ Error: Incorrect number of arguments.\n\n");
     std::cerr << "Usage:\n";
     std::cerr << fmt::format(
@@ -137,8 +188,6 @@ int main(int Argc, char *Argv[]) {
     return 1;
   }
 
-  // Assertions for programming errors, if Argv[1] or Argv[2] are null
-  // despite Argc being correct.
   assert(Argv[1] != nullptr &&
          "Input path argument (Argv[1]) should not be null");
   assert(Argv[2] != nullptr &&
@@ -161,11 +210,13 @@ int main(int Argc, char *Argv[]) {
     return 1;
   }
 
-  // Parse signature once
-  Signature Sig;
-  if (!parseFunctionSignature(Argv[2], Sig)) {
+  // Parse target signature once (with its own storage)
+  coogle::SignatureStorage TargetStorage;
+  auto MaybeSig = coogle::parseFunctionSignature(TargetStorage, Argv[2]);
+  if (!MaybeSig) {
     return 1;
   }
+  coogle::Signature &TargetSig = *MaybeSig;
 
   // Initialize libclang once
   CXIndexRAII Index;
@@ -175,15 +226,19 @@ int main(int Argc, char *Argv[]) {
   }
 
   std::vector<std::string> ArgsVec = detectSystemIncludePaths();
+  ArgsVec.push_back("-x");
+  ArgsVec.push_back("c++");
+
   std::vector<const char *> ClangArgs;
   for (const auto &S : ArgsVec) {
     ClangArgs.push_back(S.c_str());
   }
 
   // --- Data Collection ---
-  std::map<std::string, std::vector<Match>> Results;
+  // Single storage for all match strings
+  coogle::SignatureStorage MatchStorage;
+  std::vector<ParseResults> Results;
   std::vector<std::string> ParseFailures;
-  int TotalMatches = 0;
 
   // Parse each file
   for (const auto &Filename : Files) {
@@ -196,33 +251,33 @@ int main(int Argc, char *Argv[]) {
       continue;
     }
 
-    VisitorContext Ctx{&Sig, Filename, &Results};
+    VisitorContext Ctx{&TargetSig, Filename, &Results, &MatchStorage};
     CXCursor RootCursor = clang_getTranslationUnitCursor(TU);
     clang_visitChildren(RootCursor, visitor, &Ctx);
   }
 
   // --- Output ---
-  fmt::print("\n{}▶ Searching for: {}{}\n\n", colors::Bold, toString(Sig), colors::Reset);
+  fmt::print("\n{}▶ Searching for: {}{}\n\n", colors::Bold,
+             coogle::toString(TargetSig), colors::Reset);
 
-  for (const auto &[File, FileMatches] : Results) {
-    fmt::print("{}{}✔ {}{}\n", colors::Bold, colors::Blue, File, colors::Reset);
-    for (const auto &Match : FileMatches) {
-      fmt::print("  {}└─ {}{}: {}{}{}{}\n",
-                 colors::Grey,
-                 colors::Yellow, Match.Line, colors::Reset,
-                 colors::Green, Match.FunctionName, colors::Reset,
-                 Match.SignatureStr);
+  int TotalMatches = 0;
+  for (const auto &Result : Results) {
+    fmt::print("{}{}✔ {}{}\n", colors::Bold, colors::Blue, Result.FileName,
+               colors::Reset);
+    for (const auto &Match : Result.Matches) {
+      fmt::print("  {}└─ {}{}: {}{}{}{}\n", colors::Grey, colors::Yellow,
+                 Match.Line, colors::Reset, colors::Green, Match.FunctionName,
+                 colors::Reset, Match.SignatureStr);
       TotalMatches++;
     }
   }
 
   for (const auto &File : ParseFailures) {
-    fmt::print("{}{}✖ Warning: {}{}Failed to parse {}\n",
-               colors::Bold, colors::Yellow, colors::Reset, File);
+    fmt::print("{}{}✖ Warning: {}{}Failed to parse {}\n", colors::Bold,
+               colors::Yellow, colors::Reset, File);
   }
 
   fmt::print("\nMatches found: {}\n", TotalMatches);
 
-  // RAII wrappers will automatically clean up resources on scope exit
   return 0;
 }
