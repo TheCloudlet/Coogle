@@ -225,9 +225,13 @@ int main(int Argc, char *Argv[]) {
     return 1;
   }
 
-  std::vector<std::string> ArgsVec = detectSystemIncludePaths();
+  // Don't include system paths - this speeds up parsing dramatically
+  // by preventing libclang from parsing all system headers
+  std::vector<std::string> ArgsVec;
   ArgsVec.push_back("-x");
   ArgsVec.push_back("c++");
+  ArgsVec.push_back("-nostdinc");   // Don't search standard system directories
+  ArgsVec.push_back("-nostdinc++"); // Don't search standard C++ directories
 
   std::vector<const char *> ClangArgs;
   for (const auto &S : ArgsVec) {
@@ -242,9 +246,14 @@ int main(int Argc, char *Argv[]) {
 
   // Parse each file
   for (const auto &Filename : Files) {
-    CXTranslationUnitRAII TU(clang_parseTranslationUnit(
-        Index, Filename.c_str(), ClangArgs.data(), ClangArgs.size(), nullptr, 0,
-        CXTranslationUnit_None));
+    // Performance optimization: Skip function bodies and detailed preprocessing
+    // We only need function signatures, not implementations
+    unsigned Options =
+        CXTranslationUnit_SkipFunctionBodies | CXTranslationUnit_Incomplete;
+
+    CXTranslationUnitRAII TU(
+        clang_parseTranslationUnit(Index, Filename.c_str(), ClangArgs.data(),
+                                   ClangArgs.size(), nullptr, 0, Options));
 
     if (!TU.isValid()) {
       ParseFailures.push_back(Filename);
