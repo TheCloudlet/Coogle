@@ -5,6 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -Wall -Wextra -g")
 
+# Generate compile_commands.json for IDE integration and tooling
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 include(FetchContent)
 FetchContent_Declare(
   fmt
@@ -75,9 +78,4 @@ if(GTest_FOUND)
   add_test(NAME ContainersTest COMMAND coogle_test --gtest_filter=ContainersTest.*)
   add_test(NAME AllTests COMMAND coogle_test)
 
-  # Keep legacy parser_test for backward compatibility
-  add_executable(parser_test test/unit/parser_test.cpp)
-  target_link_libraries(parser_test coogle_lib GTest::gtest_main)
-  target_include_directories(parser_test PRIVATE include)
-  add_test(NAME ParserTestLegacy COMMAND parser_test)
 endif()

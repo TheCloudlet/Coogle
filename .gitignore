@@ -3,3 +3,9 @@ compile_commands.json
 build/
 CLAUDE.md
 .gemini/
+
+# Benchmark downloads
+benchmarks/llvm-project/
+benchmarks/boost/
+benchmarks/boost-asio/
+benchmarks/results_*.txt
