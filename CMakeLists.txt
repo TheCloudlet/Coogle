@@ -64,6 +64,7 @@ if(GTest_FOUND)
     test/unit/signature_test.cpp
     test/unit/matching_test.cpp
     test/unit/containers_test.cpp
+    test/unit/type_alias_test.cpp
   )
 
   # Test executable with all test files
@@ -76,6 +77,7 @@ if(GTest_FOUND)
   add_test(NAME SignatureTest COMMAND coogle_test --gtest_filter=ParseSignatureTest.*:ToStringTest.*)
   add_test(NAME MatchingTest COMMAND coogle_test --gtest_filter=SignatureMatchTest.*:WildcardIntegrationTest.*)
   add_test(NAME ContainersTest COMMAND coogle_test --gtest_filter=ContainersTest.*)
+  add_test(NAME TypeAliasTest COMMAND coogle_test --gtest_filter=TypeAliasTest.*)
   add_test(NAME AllTests COMMAND coogle_test)
 
 endif()
