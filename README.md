@@ -156,13 +156,13 @@ Coogle implements a zero-allocation architecture for maximum performance:
 - ✅ Implemented arena allocator with `string_view` for zero-copy semantics
 - ✅ Pre-normalize types during parsing for O(1) comparison
 - ✅ Custom C++17-compatible `span<T>` implementation
-- ✅ Reduced heap allocations by 99.95% (10,104 → 5)
+- ✅ Reduced heap allocations
 - ✅ 1000× faster signature matching through pre-normalization
 - ✅ Comprehensive test suite with 24 unit tests (100% passing)
 - ✅ Packed data structures for cache efficiency
 - ✅ Flat results storage for sequential memory access
 
-**Performance & Correctness (2025-01)**
+**Performance & Correctness (2025-11)**
 
 - ✅ Added directory mode with recursive file discovery
 - ✅ Implemented system header filtering to eliminate stdlib noise
