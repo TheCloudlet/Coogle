@@ -3,6 +3,7 @@ compile_commands.json
 build/
 CLAUDE.md
 .gemini/
+.DS_Store
 
 # Benchmark downloads
 benchmarks/llvm-project/

@@ -1,5 +1,7 @@
 # Coogle
 
+![Coogle Banner](./img/coogle_banner.png)
+
 **Coogle** is a high-performance C++ command-line tool for searching C/C++ functions based on their type signatures — inspired by [Hoogle](https://hoogle.haskell.org) from the Haskell ecosystem.
 
 ## Overview
