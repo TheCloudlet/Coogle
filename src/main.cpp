@@ -134,6 +134,12 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
     if (coogle::isSignatureMatch(*Ctx->TargetSig, Actual)) {
       // Get function location
       CXSourceLocation Location = clang_getCursorLocation(Cursor);
+
+      // Skip system headers (double protection)
+      if (clang_Location_isInSystemHeader(Location)) {
+        return CXChildVisit_Continue;
+      }
+
       CXFile File;
       unsigned Line = 0;
       clang_getSpellingLocation(Location, &File, &Line, nullptr, nullptr);
