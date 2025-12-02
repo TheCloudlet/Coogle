@@ -18,26 +18,30 @@
 //   - Whether "typedef int MyInt; MyInt foo();" is found when searching
 //   - The actual end-to-end behavior with real C++ source files
 //
-// REAL type alias handling:
-// =========================
+// REAL type alias handling (CANONICAL TYPE RESOLUTION):
+// ======================================================
 // Real type alias resolution happens in main.cpp via libclang:
-//   CXType RetType = clang_getCursorResultType(Cursor);  // libclang does resolution
-//   CXString RetSpelling = clang_getTypeSpelling(RetType);
+//   CXType RetType = clang_getCursorResultType(Cursor);
+//   CXType CanonicalRetType = clang_getCanonicalType(RetType);  // ← Canonicalization!
+//   CXString RetSpelling = clang_getTypeSpelling(CanonicalRetType);
 //
 // libclang is responsible for:
 //   - Parsing actual C++ code
-//   - Resolving typedef/using declarations
-//   - Reporting type names back to our parser
+//   - Resolving typedef/using declarations to their underlying types
+//   - Canonicalizing template types (std::string → std::basic_string<...>)
+//   - Reporting CANONICAL type names back to our parser
 //
 // Integration testing (manual):
 //   - test/inputs/type_alias_test.cpp contains real C++ type aliases
-//   - Running: ./coogle test/inputs/type_alias_test.cpp "MyInt()"
-//   - This tests the FULL pipeline: libclang → our parser → matching
+//   - Running: ./coogle test/inputs/type_alias_test.cpp "int()"
+//   - This will MATCH functions declared as "MyInt foo()" where MyInt is typedef'd to int
+//   - This tests the FULL pipeline: libclang → canonical type → our parser → matching
 //
 // Behavior in production (main.cpp):
-//   - User-defined type aliases (using/typedef) are preserved by libclang
-//   - System type aliases (std::int32_t, etc.) may be canonicalized to underlying types
-//   - This is expected libclang behavior, not a parser limitation
+//   - ALL type aliases (using/typedef) are canonicalized to their underlying types
+//   - std::string is canonicalized to std::basic_string<char, std::char_traits<char>, std::allocator<char>>
+//   - This is CORRECT semantic behavior: aliases should match their underlying types
+//   - A search tool should find ALL semantically equivalent types, not just exact name matches
 
 #include "coogle/arena.h"
 #include "coogle/parser.h"
@@ -80,24 +84,6 @@ TEST(TypeAliasTest, ExactAliasMatch) {
   auto B = parseFunctionSignature(StorageB, "MyInt()");
   ASSERT_TRUE(A && B);
   EXPECT_TRUE(isSignatureMatch(*A, *B));
-}
-
-// Test that type aliases don't match underlying types
-// (This is expected behavior - aliases are treated as distinct types)
-TEST(TypeAliasTest, AliasDoesNotMatchUnderlyingType) {
-  SignatureStorage StorageA;
-  auto A = parseFunctionSignature(StorageA, "MyInt()");
-  SignatureStorage StorageB;
-  auto B = parseFunctionSignature(StorageB, "int()");
-  ASSERT_TRUE(A && B);
-  EXPECT_FALSE(isSignatureMatch(*A, *B));
-
-  SignatureStorage StorageC;
-  A = parseFunctionSignature(StorageC, "void(Integer)");
-  SignatureStorage StorageD;
-  B = parseFunctionSignature(StorageD, "void(int)");
-  ASSERT_TRUE(A && B);
-  EXPECT_FALSE(isSignatureMatch(*A, *B));
 }
 
 // Test pointer type aliases

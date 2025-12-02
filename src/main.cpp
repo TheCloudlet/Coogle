@@ -85,11 +85,12 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
     // Build actual signature from libclang
     coogle::SignatureStorage ActualStorage;
 
-    // Get return type
+    // Get return type (canonicalized for semantic type matching)
     CXType RetType = clang_getCursorResultType(Cursor);
     assert(RetType.kind != CXType_Invalid &&
            "Invalid return type obtained from libclang");
-    CXString RetSpelling = clang_getTypeSpelling(RetType);
+    CXType CanonicalRetType = clang_getCanonicalType(RetType);
+    CXString RetSpelling = clang_getTypeSpelling(CanonicalRetType);
     std::string_view RetTypeSV = clang_getCString(RetSpelling);
     std::string_view RetTypeInterned = ActualStorage.internString(RetTypeSV);
     std::string_view RetTypeNorm =
@@ -107,7 +108,8 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
       CXType ArgType = clang_getCursorType(ArgCursor);
       assert(ArgType.kind != CXType_Invalid &&
              "Invalid argument type obtained from libclang");
-      CXString TypeSpelling = clang_getTypeSpelling(ArgType);
+      CXType CanonicalArgType = clang_getCanonicalType(ArgType);
+      CXString TypeSpelling = clang_getTypeSpelling(CanonicalArgType);
 
       std::string_view ArgTypeSV = clang_getCString(TypeSpelling);
       std::string_view ArgTypeInterned = ActualStorage.internString(ArgTypeSV);
@@ -124,6 +126,9 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
     Actual.RetTypeNorm = RetTypeNorm;
     Actual.ArgTypes = ActualStorage.getArgs();
     Actual.ArgTypesNorm = ActualStorage.getArgsNorm();
+
+    // DEBUG: Print extracted signature (disabled by default)
+    // std::cerr << fmt::format("[DEBUG] Function signature: {}\n", coogle::toString(Actual));
 
     // Check if signature matches
     if (coogle::isSignatureMatch(*Ctx->TargetSig, Actual)) {

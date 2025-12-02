@@ -2,7 +2,6 @@
 //
 // Unit tests for type normalization.
 
-#include "coogle/arena.h"
 #include "coogle/parser.h"
 #include <gtest/gtest.h>
 
