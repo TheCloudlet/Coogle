@@ -183,19 +183,55 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
   return CXChildVisit_Recurse;
 }
 
+void printHelp(const char *ProgramName) {
+  std::cout << fmt::format("Coogle - C++ Function Signature Search Tool\n\n");
+  std::cout << fmt::format("Usage:\n");
+  std::cout << fmt::format("  {} <file_or_directory> \"<function_signature>\"\n", ProgramName);
+  std::cout << fmt::format("  {} --help\n\n", ProgramName);
+  std::cout << fmt::format("Arguments:\n");
+  std::cout << fmt::format("  <file_or_directory>     C/C++ source file or directory to search\n");
+  std::cout << fmt::format("  <function_signature>    Function signature pattern to match\n\n");
+  std::cout << fmt::format("Signature Format:\n");
+  std::cout << fmt::format("  return_type(arg1_type, arg2_type, ...)\n\n");
+  std::cout << fmt::format("Wildcards:\n");
+  std::cout << fmt::format("  Use '*' to match any argument type\n");
+  std::cout << fmt::format("  Example: \"void(*, int)\" matches any function returning void\n");
+  std::cout << fmt::format("           with any first argument and int second argument\n\n");
+  std::cout << fmt::format("Examples:\n");
+  std::cout << fmt::format("  {} example.c \"int(int, char *)\"\n", ProgramName);
+  std::cout << fmt::format("  {} src/ \"void(char *)\"\n", ProgramName);
+  std::cout << fmt::format("  {} . \"int(*)(void)\"\n", ProgramName);
+  std::cout << fmt::format("  {} main.cpp \"std::string(const std::string &)\"\n", ProgramName);
+  std::cout << fmt::format("  {} . \"void(*, *)\"  # Find all void functions with 2 args\n\n", ProgramName);
+  std::cout << fmt::format("Features:\n");
+  std::cout << fmt::format("  • Canonical type resolution (typedefs/aliases resolve to underlying types)\n");
+  std::cout << fmt::format("  • Template-aware matching (std::string ↔ std::basic_string<...>)\n");
+  std::cout << fmt::format("  • System header filtering (shows only user code)\n");
+  std::cout << fmt::format("  • Wildcard argument matching\n");
+  std::cout << fmt::format("  • Recursive directory search\n\n");
+}
+
 int main(int Argc, char *Argv[]) {
   assert(Argv != nullptr && "Argv should not be null");
   assert(Argv[0] != nullptr && "Program name (Argv[0]) should not be null");
+
+  // Check for --help flag
+  if (Argc == 2 && (std::string(Argv[1]) == "--help" || std::string(Argv[1]) == "-h")) {
+    printHelp(Argv[0]);
+    return 0;
+  }
 
   if (Argc != ExpectedArgCount) {
     std::cerr << fmt::format("✖ Error: Incorrect number of arguments.\n\n");
     std::cerr << "Usage:\n";
     std::cerr << fmt::format(
-        "  {} <file_or_directory> \"<function_signature>\"\n\n", Argv[0]);
+        "  {} <file_or_directory> \"<function_signature>\"\n", Argv[0]);
+    std::cerr << fmt::format("  {} --help\n\n", Argv[0]);
     std::cerr << "Examples:\n";
     std::cerr << fmt::format("  {} example.c \"int(int, char *)\"\n", Argv[0]);
     std::cerr << fmt::format("  {} src/ \"void(char *)\"\n", Argv[0]);
     std::cerr << fmt::format("  {} . \"int(*)(void)\"\n\n", Argv[0]);
+    std::cerr << fmt::format("Run '{} --help' for more information.\n\n", Argv[0]);
     return 1;
   }
 
