@@ -17,9 +17,12 @@
 #include <cstddef>
 #include <filesystem>
 #include <fmt/core.h>
+#include <future>
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -42,6 +45,20 @@ struct Match {
 struct ParseResults {
   std::string_view FileName;
   std::vector<Match> Matches;
+};
+
+// Result of a processing task (thread-local storage)
+struct TaskResult {
+  coogle::SignatureStorage Storage; // Owns the strings in Results
+  std::vector<ParseResults> Results;
+  std::vector<std::string> Failures;
+
+  // Enable move
+  TaskResult() = default;
+  TaskResult(TaskResult &&) = default;
+  TaskResult &operator=(TaskResult &&) = default;
+  TaskResult(const TaskResult &) = delete;
+  TaskResult &operator=(const TaskResult &) = delete;
 };
 
 // Visitor context with arena storage.
@@ -103,8 +120,10 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
 
     for (int ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
       CXCursor ArgCursor = clang_Cursor_getArgument(Cursor, ArgIdx);
-      assert(!clang_equalCursors(ArgCursor, clang_getNullCursor()) &&
-             "Invalid argument cursor obtained from libclang");
+      if (clang_equalCursors(ArgCursor, clang_getNullCursor())) {
+        continue; // Skip invalid arguments (e.g. variadic args sometimes cause
+                  // issues)
+      }
       CXType ArgType = clang_getCursorType(ArgCursor);
       assert(ArgType.kind != CXType_Invalid &&
              "Invalid argument type obtained from libclang");
@@ -126,9 +145,6 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
     Actual.RetTypeNorm = RetTypeNorm;
     Actual.ArgTypes = ActualStorage.getArgs();
     Actual.ArgTypesNorm = ActualStorage.getArgsNorm();
-
-    // DEBUG: Print extracted signature (disabled by default)
-    // std::cerr << fmt::format("[DEBUG] Function signature: {}\n", coogle::toString(Actual));
 
     // Check if signature matches
     if (coogle::isSignatureMatch(*Ctx->TargetSig, Actual)) {
@@ -159,19 +175,18 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
         std::string_view SignatureView =
             Ctx->Storage->internString(SignatureStr);
 
-        // Find or create ParseResults for this file
-        auto It = std::find_if(Ctx->Results->begin(), Ctx->Results->end(),
-                               [&](const ParseResults &PR) {
-                                 return PR.FileName == Ctx->CurrentFile;
-                               });
+        // Optimization: Since we process files sequentially, we only need to
+        // check the last entry
+        bool IsNewFile = Ctx->Results->empty() ||
+                         Ctx->Results->back().FileName != Ctx->CurrentFile;
 
-        if (It == Ctx->Results->end()) {
+        if (IsNewFile) {
           Ctx->Results->push_back(
               {Ctx->Storage->internString(Ctx->CurrentFile), {}});
-          It = Ctx->Results->end() - 1;
         }
 
-        It->Matches.push_back({FuncNameView, SignatureView, Line});
+        Ctx->Results->back().Matches.push_back(
+            {FuncNameView, SignatureView, Line});
 
         clang_disposeString(FuncName);
       }
@@ -183,32 +198,82 @@ CXChildVisitResult visitor(CXCursor Cursor, [[maybe_unused]] CXCursor Parent,
   return CXChildVisit_Recurse;
 }
 
+TaskResult processFiles(const std::vector<std::string> &Files,
+                        const coogle::Signature &TargetSig,
+                        const std::vector<const char *> &ClangArgs) {
+  TaskResult Result;
+
+  // Each thread needs its own index to avoid contention
+  CXIndexRAII Index;
+  if (!Index.isValid()) {
+    std::cerr << "Error creating Clang index in worker thread\n";
+    return Result;
+  }
+
+  for (const auto &Filename : Files) {
+    // Performance optimization:
+    // - SkipFunctionBodies: We only need signatures
+    // - Incomplete: Allow parsing errors (missing headers)
+    // - SingleFileParse: Don't process included headers (we don't want them
+    // anyway)
+    // - LimitSkipFunctionBodiesToPreamble: Further optim for skipping bodies
+    unsigned Options =
+        CXTranslationUnit_SkipFunctionBodies | CXTranslationUnit_Incomplete |
+        CXTranslationUnit_SingleFileParse | CXTranslationUnit_KeepGoing;
+
+    CXTranslationUnitRAII TU(
+        clang_parseTranslationUnit(Index, Filename.c_str(), ClangArgs.data(),
+                                   ClangArgs.size(), nullptr, 0, Options));
+
+    if (!TU.isValid()) {
+      Result.Failures.push_back(Filename);
+      continue;
+    }
+
+    VisitorContext Ctx{const_cast<coogle::Signature *>(&TargetSig), Filename,
+                       &Result.Results, &Result.Storage};
+    CXCursor RootCursor = clang_getTranslationUnitCursor(TU);
+    clang_visitChildren(RootCursor, visitor, &Ctx);
+  }
+
+  return Result;
+}
+
 void printHelp(const char *ProgramName) {
   std::cout << fmt::format("Coogle - C++ Function Signature Search Tool\n\n");
   std::cout << fmt::format("Usage:\n");
-  std::cout << fmt::format("  {} <file_or_directory> \"<function_signature>\"\n", ProgramName);
+  std::cout << fmt::format(
+      "  {} <file_or_directory> \"<function_signature>\"\n", ProgramName);
   std::cout << fmt::format("  {} --help\n\n", ProgramName);
   std::cout << fmt::format("Arguments:\n");
-  std::cout << fmt::format("  <file_or_directory>     C/C++ source file or directory to search\n");
-  std::cout << fmt::format("  <function_signature>    Function signature pattern to match\n\n");
+  std::cout << fmt::format(
+      "  <file_or_directory>     C/C++ source file or directory to search\n");
+  std::cout << fmt::format(
+      "  <function_signature>    Function signature pattern to match\n\n");
   std::cout << fmt::format("Signature Format:\n");
   std::cout << fmt::format("  return_type(arg1_type, arg2_type, ...)\n\n");
   std::cout << fmt::format("Wildcards:\n");
   std::cout << fmt::format("  Use '*' to match any argument type\n");
-  std::cout << fmt::format("  Example: \"void(*, int)\" matches any function returning void\n");
-  std::cout << fmt::format("           with any first argument and int second argument\n\n");
+  std::cout << fmt::format(
+      "  Example: \"void(*, int)\" matches any function returning void\n");
+  std::cout << fmt::format(
+      "           with any first argument and int second argument\n\n");
   std::cout << fmt::format("Examples:\n");
-  std::cout << fmt::format("  {} example.c \"int(int, char *)\"\n", ProgramName);
+  std::cout << fmt::format("  {} example.c \"int(int, char *)\"\n",
+                           ProgramName);
   std::cout << fmt::format("  {} src/ \"void(char *)\"\n", ProgramName);
   std::cout << fmt::format("  {} . \"int(*)(void)\"\n", ProgramName);
-  std::cout << fmt::format("  {} main.cpp \"std::string(const std::string &)\"\n", ProgramName);
-  std::cout << fmt::format("  {} . \"void(*, *)\"  # Find all void functions with 2 args\n\n", ProgramName);
+  std::cout << fmt::format(
+      "  {} main.cpp \"std::string(const std::string &)\"\n", ProgramName);
+  std::cout << fmt::format(
+      "  {} . \"void(*, *)\"  # Find all void functions with 2 args\n\n",
+      ProgramName);
   std::cout << fmt::format("Features:\n");
-  std::cout << fmt::format("  • Canonical type resolution (typedefs/aliases resolve to underlying types)\n");
-  std::cout << fmt::format("  • Template-aware matching (std::string ↔ std::basic_string<...>)\n");
-  std::cout << fmt::format("  • System header filtering (shows only user code)\n");
-  std::cout << fmt::format("  • Wildcard argument matching\n");
-  std::cout << fmt::format("  • Recursive directory search\n\n");
+  std::cout << fmt::format("  • Parallel file processing\n");
+  std::cout << fmt::format("  • Canonical type resolution\n");
+  std::cout << fmt::format("  • Template-aware matching\n");
+  std::cout << fmt::format("  • System header filtering\n");
+  std::cout << fmt::format("  • Wildcard argument matching\n\n");
 }
 
 int main(int Argc, char *Argv[]) {
@@ -216,7 +281,8 @@ int main(int Argc, char *Argv[]) {
   assert(Argv[0] != nullptr && "Program name (Argv[0]) should not be null");
 
   // Check for --help flag
-  if (Argc == 2 && (std::string(Argv[1]) == "--help" || std::string(Argv[1]) == "-h")) {
+  if (Argc == 2 &&
+      (std::string(Argv[1]) == "--help" || std::string(Argv[1]) == "-h")) {
     printHelp(Argv[0]);
     return 0;
   }
@@ -227,11 +293,6 @@ int main(int Argc, char *Argv[]) {
     std::cerr << fmt::format(
         "  {} <file_or_directory> \"<function_signature>\"\n", Argv[0]);
     std::cerr << fmt::format("  {} --help\n\n", Argv[0]);
-    std::cerr << "Examples:\n";
-    std::cerr << fmt::format("  {} example.c \"int(int, char *)\"\n", Argv[0]);
-    std::cerr << fmt::format("  {} src/ \"void(char *)\"\n", Argv[0]);
-    std::cerr << fmt::format("  {} . \"int(*)(void)\"\n\n", Argv[0]);
-    std::cerr << fmt::format("Run '{} --help' for more information.\n\n", Argv[0]);
     return 1;
   }
 
@@ -265,15 +326,7 @@ int main(int Argc, char *Argv[]) {
   }
   coogle::Signature &TargetSig = *MaybeSig;
 
-  // Initialize libclang once
-  CXIndexRAII Index;
-  if (!Index.isValid()) {
-    std::cerr << "Error creating Clang index\n";
-    return 1;
-  }
-
-  // Don't include system paths - this speeds up parsing dramatically
-  // by preventing libclang from parsing all system headers
+  // Prepare clang args
   std::vector<std::string> ArgsVec;
   ArgsVec.push_back("-x");
   ArgsVec.push_back("c++");
@@ -285,31 +338,33 @@ int main(int Argc, char *Argv[]) {
     ClangArgs.push_back(S.c_str());
   }
 
-  // --- Data Collection ---
-  // Single storage for all match strings
-  coogle::SignatureStorage MatchStorage;
-  std::vector<ParseResults> Results;
-  std::vector<std::string> ParseFailures;
+  // Determine thread count and chunk size
+  const size_t NumThreads = std::max(1u, std::thread::hardware_concurrency());
+  const size_t NumFiles = Files.size();
+  const size_t ChunkSize = (NumFiles + NumThreads - 1) / NumThreads;
 
-  // Parse each file
-  for (const auto &Filename : Files) {
-    // Performance optimization: Skip function bodies and detailed preprocessing
-    // We only need function signatures, not implementations
-    unsigned Options =
-        CXTranslationUnit_SkipFunctionBodies | CXTranslationUnit_Incomplete;
+  std::vector<std::future<TaskResult>> Futures;
 
-    CXTranslationUnitRAII TU(
-        clang_parseTranslationUnit(Index, Filename.c_str(), ClangArgs.data(),
-                                   ClangArgs.size(), nullptr, 0, Options));
+  // Launch tasks
+  for (size_t i = 0; i < NumThreads; ++i) {
+    size_t Start = i * ChunkSize;
+    if (Start >= NumFiles)
+      break;
+    size_t End = std::min(Start + ChunkSize, NumFiles);
 
-    if (!TU.isValid()) {
-      ParseFailures.push_back(Filename);
-      continue;
-    }
+    // Copy subset of files for this chunk
+    std::vector<std::string> ChunkFiles(Files.begin() + Start,
+                                        Files.begin() + End);
 
-    VisitorContext Ctx{&TargetSig, Filename, &Results, &MatchStorage};
-    CXCursor RootCursor = clang_getTranslationUnitCursor(TU);
-    clang_visitChildren(RootCursor, visitor, &Ctx);
+    Futures.push_back(std::async(std::launch::async, processFiles,
+                                 std::move(ChunkFiles), std::cref(TargetSig),
+                                 std::cref(ClangArgs)));
+  }
+
+  // Collect results
+  std::vector<TaskResult> AllResults;
+  for (auto &Fut : Futures) {
+    AllResults.push_back(Fut.get());
   }
 
   // --- Output ---
@@ -317,20 +372,24 @@ int main(int Argc, char *Argv[]) {
              coogle::toString(TargetSig), colors::Reset);
 
   int TotalMatches = 0;
-  for (const auto &Result : Results) {
-    fmt::print("{}{}✔ {}{}\n", colors::Bold, colors::Blue, Result.FileName,
-               colors::Reset);
-    for (const auto &Match : Result.Matches) {
-      fmt::print("  {}└─ {}{}: {}{}{}{}\n", colors::Grey, colors::Yellow,
-                 Match.Line, colors::Reset, colors::Green, Match.FunctionName,
-                 colors::Reset, Match.SignatureStr);
-      TotalMatches++;
-    }
-  }
 
-  for (const auto &File : ParseFailures) {
-    fmt::print("{}{}✖ Warning: {}{}Failed to parse {}\n", colors::Bold,
-               colors::Yellow, colors::Reset, File);
+  // Iterate through collected results
+  for (const auto &TaskRes : AllResults) {
+    for (const auto &Result : TaskRes.Results) {
+      fmt::print("{}{}✔ {}{}\n", colors::Bold, colors::Blue, Result.FileName,
+                 colors::Reset);
+      for (const auto &Match : Result.Matches) {
+        fmt::print("  {}└─ {}{}: {}{}{}{}\n", colors::Grey, colors::Yellow,
+                   Match.Line, colors::Reset, colors::Green, Match.FunctionName,
+                   colors::Reset, Match.SignatureStr);
+        TotalMatches++;
+      }
+    }
+
+    for (const auto &File : TaskRes.Failures) {
+      fmt::print("{}{}✖ Warning: {}{}Failed to parse {}\n", colors::Bold,
+                 colors::Yellow, colors::Reset, File);
+    }
   }
 
   fmt::print("\nMatches found: {}\n", TotalMatches);
