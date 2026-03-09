@@ -34,40 +34,48 @@ git clone https://github.com/TheCloudlet/Coogle
 cd Coogle
 ```
 
-### 2. Install LLVM (macOS example)
+### 2. Install Dependencies
+
+<details>
+<summary><b>macOS (Homebrew)</b></summary>
 
 ```bash
-brew install llvm
+brew install llvm googletest
 ```
-
-For other platforms, see [LLVM installation guide](https://releases.llvm.org/).
-
-### 3. Configure environment variables (macOS with Homebrew LLVM)
 
 Add these to your shell config (`~/.zshrc`, `~/.bash_profile`, etc.):
 
 ```bash
-export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
-export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
+export PATH="$(brew --prefix llvm)/bin:$PATH"
+export LLVM_CONFIG_EXECUTABLE="$(brew --prefix llvm)/bin/llvm-config"
 ```
 
 Then apply the settings:
-
 ```bash
 source ~/.zshrc  # or source ~/.bash_profile
 ```
+</details>
 
-### 4. Build the project
+<details>
+<summary><b>Linux (Ubuntu/Debian)</b></summary>
+
+```bash
+sudo apt-get update
+sudo apt-get install -y cmake build-essential clang libclang-dev llvm-dev libgtest-dev
+```
+
+</details>
+
+### 3. Build the project
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j8
+cmake --build build -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 ```
 
 This will generate the `coogle` executable inside the `build/` directory.
 
-### 5. Run tests (optional)
+### 4. Run tests (optional)
 
 ```bash
 cd build && ctest --output-on-failure

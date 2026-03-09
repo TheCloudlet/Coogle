@@ -39,7 +39,7 @@ struct Match {
   std::string_view FunctionName; // 16 bytes
   std::string_view SignatureStr; // 16 bytes
   unsigned int Line;             // 4 bytes
-} __attribute__((packed));
+};
 
 // Parse results for a single file (flat structure).
 struct ParseResults {

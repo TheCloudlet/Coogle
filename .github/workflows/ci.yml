@@ -1,0 +1,74 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }}, ${{ matrix.container }})
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            container: ""
+          - os: macos-latest
+            container: ""
+          - os: ubuntu-latest
+            container: "debian:trixie"
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies (Ubuntu/Debian)
+      if: runner.os == 'Linux'
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        if [ "${{ matrix.container }}" = "debian:trixie" ]; then
+          apt-get update
+          apt-get install -y git cmake build-essential clang libclang-dev llvm-dev libgtest-dev ca-certificates
+        else
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev llvm-dev libgtest-dev
+        fi
+
+    - name: Set Environment Variables (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        echo "CC=clang" >> $GITHUB_ENV
+        echo "CXX=clang++" >> $GITHUB_ENV
+
+    - name: Configure Environment (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install llvm googletest
+        echo "PATH=$(brew --prefix llvm)/bin:$PATH" >> $GITHUB_ENV
+        echo "LLVM_CONFIG_EXECUTABLE=$(brew --prefix llvm)/bin/llvm-config" >> $GITHUB_ENV
+
+    - name: Debug Info
+      run: |
+        cmake --version
+        ${CXX:-g++} --version
+        CONFIG=${LLVM_CONFIG_EXECUTABLE:-llvm-config}
+        $CONFIG --version || echo "llvm-config not found"
+        $CONFIG --includedir || echo "llvm-config --includedir failed"
+        which $CONFIG || echo "llvm-config not in PATH"
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_COMPILER=${CC:-clang} \
+          -DCMAKE_CXX_COMPILER=${CXX:-clang++}
+
+    - name: Build
+      run: |
+        cmake --build build --config Release -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+
+    - name: Test
+      run: |
+        cd build && ctest --output-on-failure

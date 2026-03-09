@@ -23,7 +23,7 @@ struct Signature {
   std::string_view RetTypeNorm;        // Normalized return type
   span<std::string_view> ArgTypes;     // Original argument types
   span<std::string_view> ArgTypesNorm; // Normalized argument types
-} __attribute__((packed));
+};
 
 // Helper class to manage signature storage with arena-backed strings.
 // Provides convenient methods to build signatures incrementally.
